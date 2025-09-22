@@ -87,21 +87,21 @@ struct ASTNode {
     [[nodiscard]] TypeName get_type() const {
         return node_type;
     }
-    virtual void accept1(SemanticCheck *checker) const override {
-        checker->phase1(this);
-    }
-    virtual void accept2(SemanticCheck *checker) const override {
-        checker->phase2(this);
-    }
-    virtual void accept3(SemanticCheck *checker) const override {
-        checker->phase3(this);
-    }
-    virtual void accept4(SemanticCheck *checker) const override {
-        checker->phase4(this);
-    }
-    virtual void accept5(SemanticCheck *checker) const override {
-        checker->phase5(this);
-    }
+    // virtual void accept1(SemanticCheck *checker) const override {
+    //     checker->phase1(this);
+    // }
+    // virtual void accept2(SemanticCheck *checker) const override {
+    //     checker->phase2(this);
+    // }
+    // virtual void accept3(SemanticCheck *checker) const override {
+    //     checker->phase3(this);
+    // }
+    // virtual void accept4(SemanticCheck *checker) const override {
+    //     checker->phase4(this);
+    // }
+    // virtual void accept5(SemanticCheck *checker) const override {
+    //     checker->phase5(this);
+    // }
     explicit ASTNode(const TypeName t):node_type(t){}
 };
 
@@ -340,16 +340,16 @@ struct BlockExpr : Expr {
 
 struct IfExpr: Expr {
     std::shared_ptr<Expr> condition;
-    std::shared_ptr<BlockExpr> then_branch;
+    std::shared_ptr<Expr> then_branch;
     std::shared_ptr<Expr> else_branch; //可能是block，也可能是if
-    IfExpr(std::shared_ptr<Expr> c, std::shared_ptr<BlockExpr> t, std::shared_ptr<Expr> e, std::shared_ptr<Type> ty=nullptr):
+    IfExpr(std::shared_ptr<Expr> c, std::shared_ptr<Expr> t, std::shared_ptr<Expr> e, std::shared_ptr<Type> ty=nullptr):
     Expr(TypeName::IfStmt,std::move(ty)), condition(std::move(c)), then_branch(std::move(t)), else_branch(std::move(e)) {
     }
 };
 
 struct ReturnExpr : Expr {
     std::shared_ptr<Expr> expr;
-    explicit ReturnExpr(std::shared_ptr<Expr> e,std::shared_ptr<Type> t=nullptr) :
+    explicit ReturnExpr(std::shared_ptr<Expr> e=nullptr,std::shared_ptr<Type> t=nullptr) :
     Expr(TypeName::ReturnExpr,std::move(t)),expr(std::move(e)) {}
 };
 
@@ -385,8 +385,8 @@ struct LoopExpr : Expr {
 
 struct WhileExpr : Expr {
     std::shared_ptr<Expr> condition;
-    std::shared_ptr<BlockExpr> block;
-    WhileExpr(std::shared_ptr<Expr> c, std::shared_ptr<BlockExpr> b, std::shared_ptr<Type> t=nullptr):
+    std::shared_ptr<Expr> block;
+    WhileExpr(std::shared_ptr<Expr> c, std::shared_ptr<Expr> b, std::shared_ptr<Type> t=nullptr):
     Expr(TypeName::WhileExpr, std::move(t)),condition(std::move(c)), block(std::move(b)) {}
 };
 

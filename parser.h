@@ -5,6 +5,7 @@
 #ifndef PARSER_H
 #define PARSER_H
 #include <cmath>
+#include <future>
 
 #include "AST_node.h"
 #include "semantic check.h"
@@ -262,6 +263,40 @@ public:
         return std::make_shared<LoopExpr>(std::move(block));
     }
 
+    std::shared_ptr<Expr> parse_while() {
+        consume();
+        expect(TokenType::LParen);
+        consume();
+        auto expr=parse_expression();
+        expect(TokenType::RParen);
+        consume();
+        expect(TokenType::LBracket);
+        auto body=parse_block();
+        return std::make_shared<WhileExpr>(expr,body);
+    }
+
+    std::shared_ptr<Expr> parse_if() {
+        consume();
+        expect(TokenType::LParen);
+        consume();
+        auto expr=parse_expression();
+        expect(TokenType::RParen);
+        consume();
+        expect(TokenType::LBracket);
+        auto then=parse_block();
+        std::shared_ptr<Expr> else_body=nullptr;
+        if (match(TokenType::Else)) {
+            if (peek().type == TokenType::If) {
+                else_body=parse_if();
+            }else if (peek().type == TokenType::LBracket){
+                else_body=parse_block();
+            }else {
+                throw std::runtime_error("else without an LBracket!");
+            }
+        }
+        return std::make_shared<IfExpr>(std::move(expr),std::move(then),std::move(else_body));
+    }
+
     std::shared_ptr<Expr> parse_return() {
         consume();
         if (peek().type == TokenType::Semicolon||peek().type == TokenType::RBracket) {
@@ -286,6 +321,48 @@ public:
         return std::make_shared<BlockExpr>(std::move(elements));
     }
 
+    std::shared_ptr<Expr> parse_struct() {
+
+    }
+
+    std::shared_ptr<EnumStmt> parse_enum() {
+        expect(TokenType::Identifier);
+        auto name=peek().value;
+        consume();
+        expect(TokenType::LBracket);
+        consume();
+        std::vector<std::string> ids;
+        if (!match(TokenType::RBracket)) {
+            do {
+                if (match(TokenType::RBracket)) {
+                    break;
+                }
+                expect(TokenType::Identifier);
+                ids.push_back(peek().value);
+            }while (match(TokenType::Comma));
+        }
+        return std::make_shared<EnumStmt>(name,ids);
+    }
+
+    std::shared_ptr<LetStmt> parse_let() {
+        consume();
+        bool is_mutable = false;
+        if (peek().type == TokenType::Mut) {
+            is_mutable=true;
+            consume();
+        }
+        expect(TokenType::Identifier);
+        std::string name = peek().value;
+        consume();
+        expect(TokenType::Colon);
+        consume();
+        auto type_annotation = parse_type();
+        expect(TokenType::Equal);
+        consume();
+        auto expr=parse_expression();
+        return std::make_shared<LetStmt>(is_mutable,name,std::move(type_annotation),std::move(expr));
+    }
+
     std::shared_ptr<ASTNode> parse_statement() {
         switch (peek().type) {
             case TokenType::Let:
@@ -302,10 +379,21 @@ public:
                 return parse_trait();
                 case TokenType::Impl:
                 return parse_impl();
+                case TokenType::If://下边三个虽然是表达式，但是实际上他们在作为开头的时候，默认会进行一个直接的读入，作为块语句
+                return parse_if();
+            case TokenType::Loop:
+                return parse_loop();
+                case TokenType::While:
+                return parse_while();
                 default:
                 return parse_expression();
         }
     }
+
+    std::shared_ptr<Type> parse_type() {
+
+    }
+
 
 
 

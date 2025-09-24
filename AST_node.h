@@ -9,6 +9,7 @@
 #include <memory>
 #include <optional>
 #include <utility>
+#include <variant>
 #include <vector>
 #include "semantic check.h"
 struct Expr;
@@ -78,15 +79,25 @@ enum class TypeName {
     Char,
     LoopExpr,
     WhileExpr,
+    InherentImplStmt,
+    unit,
+    UnitExpr,
+    IdentifierType,
+    selfType,
+    SelfType,
 };
+
+using Element = std::variant<ASTNode*, std::string, int>;
 
 struct ASTNode {
     TypeName node_type;
-    std::string comment;
     virtual ~ASTNode() = default;
     [[nodiscard]] TypeName get_type() const {
         return node_type;
     }
+    [[nodiscard]] virtual std::vector<std::string> showSelf() const;
+    [[nodiscard]] virtual std::vector<std::string> showTree(int depth , bool is_last) const ;
+    [[nodiscard]] virtual std::vector<Element> get_children() const=0;
     // virtual void accept1(SemanticCheck *checker) const override {
     //     checker->phase1(this);
     // }
@@ -105,10 +116,16 @@ struct ASTNode {
     explicit ASTNode(const TypeName t):node_type(t){}
 };
 
+
+
 struct Type  :ASTNode {
+    bool is_mutable=false;
+    bool is_and=false;
     ~Type() override = default;
     virtual bool equals(const Type *other)const =0;
     explicit Type(const TypeName t):ASTNode(t){}
+    
+    [[nodiscard]] std::vector<Element> get_children() const override=0;
 };//这样设计直接可以使用ASTNode中的get_type()
 
 struct BasicType : Type {
@@ -130,15 +147,16 @@ struct BasicType : Type {
         return false; //如果dynamic_cast失败，则必定不是相同的类型
     }
     
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct ArrayType : Type {
     std::shared_ptr<Type> elementType; // 嵌套的元素类型
     int dimension; // 数组维度（如2表示二维数组）
-    int length;
+    std::shared_ptr<Expr> length;
 
-    explicit ArrayType(std::shared_ptr<Type> elementType, const int l, const int dimension = 1)
-        : Type(TypeName::ArrayType), elementType(std::move(elementType)), dimension(dimension), length(l) {
+    explicit ArrayType(std::shared_ptr<Type> elementType, std::shared_ptr<Expr> l, const int dimension = 1)
+        : Type(TypeName::ArrayType), elementType(std::move(elementType)), dimension(dimension), length(std::move(l)) {
         assert(this->elementType != nullptr);
         assert(dimension > 0);
     }
@@ -155,56 +173,35 @@ struct ArrayType : Type {
     ~ArrayType() override = default;
 
     
-};
-
-
-struct TupleType:Type {
-    std::vector<std::shared_ptr<Type>> elementTypes;
-    explicit TupleType(std::vector<std::shared_ptr<Type>> elementTypes)
-    :Type(TypeName::TupleType), elementTypes(std::move(elementTypes)) {}
-    bool equals(const Type*other)const override {
-        if (auto *tuple=dynamic_cast<const TupleType*>(other)) {
-            if (elementTypes.size()!=tuple->elementTypes.size()) {
-                return false;
-            }
-            for (size_t i=0;i<elementTypes.size();++i) {
-                if (!elementTypes[i]->equals(tuple->elementTypes[i].get())) {
-                    return false;
-                }
-            }
-            return true;
-        }
-        return false;
-    }
-    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct Field {
     std::string name;
     std::shared_ptr<Type> type;
+    Field(std::string  n, std::shared_ptr<Type> t) : name(std::move(n)), type(std::move(t)) {}
 };
 
-struct StructType:Type {
+struct IdentifierType : Type {//包含了单纯的struct,enum等信息
     std::string name;
-    std::vector<Field> fields;
-    explicit StructType(std::string n,std::vector<Field> f):Type(TypeName::StructType),name(std::move(n)),fields(std::move(f)){}
-    bool equals(const Type* other) const override {
-        if (auto* structType = dynamic_cast<const StructType*>(other)) {
-            // 结构体类型相等需满足：字段数量相同 + 每个字段的名称和类型对应相同
-            if (fields.size() != structType->fields.size()) {
-                return false;
-            }
-            for (size_t i = 0; i < fields.size(); ++i) {
-                if (fields[i].name != structType->fields[i].name ||
-                    !fields[i].type->equals(structType->fields[i].type.get())) {
-                    return false;
-                    }
-            }
-            return true;
-        }
+    explicit IdentifierType(std::string name) :
+    Type(TypeName::IdentifierType), name(std::move(name) ){}
+    bool equals(const Type *other) const override{
         return false;
     }
     
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
+};
+
+struct SelfType:Type {
+    SelfType():Type(TypeName::SelfType){}
+    bool equals(const Type *other) const override{
+        return false;
+    }
+    
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct Param {
@@ -233,17 +230,19 @@ struct FunctionType : Type {
         return false;
     }
     
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct ErrorType : Type {
     explicit ErrorType(): Type(TypeName::ErrorType) {
     }
-
     bool equals(const Type *other) const override {
         return false;
     }//只要是错误，一定判断失败
-
     
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct Expr : ASTNode {
@@ -251,6 +250,8 @@ struct Expr : ASTNode {
     explicit Expr(const TypeName t, std::shared_ptr<Type> e=nullptr): ASTNode(t), exprType(std::move(e)) {
     }
     ~Expr() override = default;
+    
+    [[nodiscard]] std::vector<Element> get_children() const override=0;
 };
 
 struct LiteralExpr : Expr {
@@ -258,6 +259,8 @@ struct LiteralExpr : Expr {
     explicit LiteralExpr(std::string v, std::shared_ptr<Type> t) : Expr(TypeName::LiteralExpr, std::move(t)), value(std::move(v)) {
     }
     
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct ArrayInitExpr : Expr {
@@ -266,6 +269,8 @@ struct ArrayInitExpr : Expr {
     Expr(TypeName::ArrayInitExpr, std::move(t)), elements(std::move(es)) {
     }
     
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct ArraySimplifiedExpr :Expr{
@@ -275,6 +280,8 @@ struct ArraySimplifiedExpr :Expr{
     Expr(TypeName::ArraySimplifiedExpr, std::move(t)), element(std::move(e)) ,length(std::move(length)){
     }
     
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct ArrayAccessExpr : Expr {
@@ -284,8 +291,16 @@ struct ArrayAccessExpr : Expr {
     ArrayAccessExpr(std::shared_ptr<Expr> a, std::shared_ptr<Expr> i,std::shared_ptr<Type> t=nullptr):
     Expr(TypeName::ArrayAccessExpr,std::move(t)), array(std::move(a)), index(std::move(i)) {
     }
-
     
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
+};
+
+struct UnitExpr : Expr {
+    UnitExpr():Expr(TypeName::UnitExpr){}
+    
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct BinaryExpr : Expr {
@@ -297,6 +312,8 @@ struct BinaryExpr : Expr {
         : Expr(TypeName::BinaryExpr,std::move(t)), left(std::move(left)), op(std::move(op)), right(std::move(right)) {
     }
     
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct UnaryExpr : Expr {
@@ -306,6 +323,9 @@ struct UnaryExpr : Expr {
     UnaryExpr(std::string op, std::shared_ptr<Expr> right,std::shared_ptr<Type> t=nullptr)
         : Expr(TypeName::UnaryExpr,std::move(t)), op(std::move(op)), right(std::move(right)) {
     }
+    
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct PathExpr : Expr {
@@ -314,6 +334,8 @@ struct PathExpr : Expr {
     Expr(TypeName::PathExpr, std::move(t)), segments(std::move(s)) {
     }
     
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
      struct CallExpr : Expr {
@@ -323,6 +345,9 @@ struct PathExpr : Expr {
          CallExpr(std::shared_ptr<Expr> r, std::vector<std::shared_ptr<Expr> > a,std::shared_ptr<Type> t=nullptr)
              : Expr(TypeName::CallExpr,std::move(t)), receiver(std::move(r)), arguments(std::move(a)) {
          }
+         
+         
+    [[nodiscard]] std::vector<Element> get_children() const override;
      };
 
 struct FieldAccessExpr : Expr {
@@ -330,12 +355,18 @@ struct FieldAccessExpr : Expr {
     std::shared_ptr<Expr> field_expr;
     explicit FieldAccessExpr(std::shared_ptr<Expr> s, std::shared_ptr<Expr> f,std::shared_ptr<Type> t=nullptr):
     Expr(TypeName::FieldAccessExpr,std::move(t)),struct_name(std::move(s)), field_expr(std::move(f)){}
+    
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct BlockExpr : Expr {
     std::vector<std::pair<std::shared_ptr<ASTNode> ,bool>> statements;
     explicit BlockExpr(std::vector<std::pair<std::shared_ptr<ASTNode> ,bool>> s, std::shared_ptr<Type> t=nullptr):
     Expr(TypeName::BlockExpr,std::move(t)),statements(std::move(s)){}
+    
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct IfExpr: Expr {
@@ -345,18 +376,27 @@ struct IfExpr: Expr {
     IfExpr(std::shared_ptr<Expr> c, std::shared_ptr<Expr> t, std::shared_ptr<Expr> e, std::shared_ptr<Type> ty=nullptr):
     Expr(TypeName::IfStmt,std::move(ty)), condition(std::move(c)), then_branch(std::move(t)), else_branch(std::move(e)) {
     }
+    
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct ReturnExpr : Expr {
     std::shared_ptr<Expr> expr;
     explicit ReturnExpr(std::shared_ptr<Expr> e=nullptr,std::shared_ptr<Type> t=nullptr) :
     Expr(TypeName::ReturnExpr,std::move(t)),expr(std::move(e)) {}
+    
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct GroupedExpr : Expr {
     std::shared_ptr<Expr> expr;
     explicit GroupedExpr(std::shared_ptr<Expr> e, std::shared_ptr<Type> t=nullptr):
     Expr(TypeName::GroupedExpr,std::move(t)), expr(std::move(e)) {}
+    
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct AssignmentExpr : Expr {
@@ -364,10 +404,16 @@ struct AssignmentExpr : Expr {
     std::shared_ptr<Expr> right;
     AssignmentExpr(std::shared_ptr<Expr> l,std::shared_ptr<Expr> r):
     Expr(TypeName::AssignmentStmt), left(std::move(l)), right(std::move(r)) {}
+    
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct ContinueExpr : Expr {
     ContinueExpr() : Expr(TypeName::ContinueExpr, nullptr) {}
+    
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct BreakExpr : Expr {
@@ -375,12 +421,18 @@ struct BreakExpr : Expr {
     BreakExpr() : Expr(TypeName::BreakExpr, nullptr) {}
     explicit BreakExpr(std::shared_ptr<Expr> e,std::shared_ptr<Type> t=nullptr):
     Expr(TypeName::BreakExpr, std::move(t)),expr(std::move(e)){}
+    
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct LoopExpr : Expr {
     std::shared_ptr<Expr> block;
     explicit LoopExpr(std::shared_ptr<Expr> b, std::shared_ptr<Type> t=nullptr):
     Expr(TypeName::LoopExpr, std::move(t)), block(std::move(b)) {}
+    
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct WhileExpr : Expr {
@@ -388,12 +440,17 @@ struct WhileExpr : Expr {
     std::shared_ptr<Expr> block;
     WhileExpr(std::shared_ptr<Expr> c, std::shared_ptr<Expr> b, std::shared_ptr<Type> t=nullptr):
     Expr(TypeName::WhileExpr, std::move(t)),condition(std::move(c)), block(std::move(b)) {}
+    
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct Stmt : ASTNode {
     explicit Stmt(const TypeName t): ASTNode(t) {
     }
     ~Stmt() override =default;
+    
+    [[nodiscard]] std::vector<Element> get_children() const override=0;
 };
 
 struct ConstStmt : Stmt {
@@ -402,18 +459,22 @@ struct ConstStmt : Stmt {
     std::shared_ptr<Expr> expr;
     ConstStmt(std::string id, std::shared_ptr<Type> t, std::shared_ptr<Expr> e): Stmt(TypeName::ConstStmt), identifier(std::move(id)), type(std::move(t)), expr(std::move(e)) {
     }
+    
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct FnStmt : Stmt {
     std::string name;
     std::vector<Param> parameters;
     std::shared_ptr<Type> return_type;
-    std::shared_ptr<BlockStmt> body;
-    FnStmt(std::string n, std::vector<Param> p, std::shared_ptr<Type> r, std::shared_ptr<BlockStmt> b): Stmt(TypeName::FnStmt), name(std::move(n)), parameters(std::move(p)), return_type(std::move(r)), body(std::move(b)) {
-    }
-    FnStmt(std::string n, std::vector<Param> p, std::shared_ptr<BlockStmt> b): Stmt(TypeName::FnStmt), name(std::move(n)), parameters(std::move(p)), body(std::move(b)) {
+    std::shared_ptr<Expr> body;
+    FnStmt(std::string n, std::vector<Param> p, std::shared_ptr<Type> r, std::shared_ptr<Expr> b): Stmt(TypeName::FnStmt), name(std::move(n)), parameters(std::move(p)), return_type(std::move(r)), body(std::move(b)) {
     }
     ~FnStmt() override = default;
+    
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct StructStmt:Stmt {
@@ -422,6 +483,8 @@ struct StructStmt:Stmt {
     StructStmt(std::string n,std::vector<Field>f): Stmt(TypeName::StructStmt), name(std::move(n)), fields(std::move(f)) {
     }
     
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct EnumStmt:Stmt{
@@ -430,43 +493,74 @@ struct EnumStmt:Stmt{
     EnumStmt(std::string n,std::vector<std::string> i): Stmt(TypeName::EnumStmt), enum_name(std::move(n)), ids(std::move(i)) {
     }
     
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct TraitStmt:Stmt {
-    std::vector<FnStmt> fns;
-    std::vector<ConstStmt> cons;
-    TraitStmt(std::vector<FnStmt> f,std::vector<ConstStmt> c):Stmt(TypeName::TraitStmt),fns(std::move(f)),cons(std::move(c)){}
+    std::string name;
+    std::vector<std::pair<std::shared_ptr<FnStmt>,bool> > fns;
+    std::vector<std::pair<std::shared_ptr<ConstStmt>,bool>> cons;
+    TraitStmt(std::string n,std::vector<std::pair<std::shared_ptr<FnStmt>,bool> >f,std::vector<std::pair<std::shared_ptr<ConstStmt>,bool>> c):
+    Stmt(TypeName::TraitStmt),name(std::move(n)),fns(std::move(f)),cons(std::move(c)){}
     
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 //区分固有实现还是特征实现
 struct InherentImplStmt:Stmt {
-    std::vector<FnStmt> fns;
-    explicit InherentImplStmt(std::vector<FnStmt> f):Stmt(TypeName::TraitImplStmt),fns(std::move(f)){}
+    std::string name;
+    std::vector<std::pair<std::shared_ptr<FnStmt>,bool> > fns;
+    std::vector<std::pair<std::shared_ptr<ConstStmt>,bool>> cons;
+    explicit InherentImplStmt(std::string n,std::vector<std::pair<std::shared_ptr<FnStmt>,bool> >f,std::vector<std::pair<std::shared_ptr<ConstStmt>,bool>> c):
+    Stmt(TypeName::InherentImplStmt),name(std::move(n)),fns(std::move(f)),cons(std::move(c)){}
     
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
 struct TraitImplStmt:Stmt {
+    std::string trait_name;
     std::string struct_name;
-    std::vector<FnStmt> fns;
-    TraitImplStmt(std::vector<FnStmt> f,std::string n):Stmt(TypeName::TraitImplStmt),fns(std::move(f)),struct_name(std::move(n)){}
+    std::vector<std::pair<std::shared_ptr<FnStmt>,bool> > fns;
+    std::vector<std::pair<std::shared_ptr<ConstStmt>,bool>> cons;
+    TraitImplStmt(std::string t,std::string s,std::vector<std::pair<std::shared_ptr<FnStmt>,bool> >f,std::vector<std::pair<std::shared_ptr<ConstStmt>,bool>> c)
+        : Stmt(TypeName::TraitImplStmt),trait_name(std::move(t)), struct_name(std::move(s)), fns(std::move(f)),cons(std::move(c)) {}
     
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
-struct LetStmt : Stmt {
+struct LetStmt:Stmt {
+    std::string identifier;
     bool is_mutable;
-    std::string name;
-    std::shared_ptr<Type> type_annotation;
+    std::shared_ptr<Type> type;
     std::shared_ptr<Expr> expr;
-    LetStmt(const bool m, std::string n, std::shared_ptr<Type> t, std::shared_ptr<Expr> e)
-        : Stmt(TypeName::LetStmt), is_mutable(m), name(std::move(n)), type_annotation(std::move(t)), expr(std::move(e)) {
+    LetStmt(std::string i,std::shared_ptr<Type> t,std::shared_ptr<Expr> e, const bool m=false)
+        : Stmt(TypeName::LetStmt), identifier(std::move(i)),type(std::move(t)), is_mutable(m), expr(std::move(e)) {
     }
-    ~LetStmt() override = default;
-
     
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
-
-
-
+struct Program : ASTNode {
+    std::vector<std::shared_ptr<ConstStmt>> cons;
+    std::vector<std::shared_ptr<FnStmt>> fns;
+    std::vector<std::shared_ptr<EnumStmt>> enums;
+    std::vector<std::shared_ptr<StructStmt>> structs;
+    std::vector<std::shared_ptr<InherentImplStmt>> inherits;
+    std::vector<std::shared_ptr<TraitStmt>> traits;
+    std::vector<std::shared_ptr<TraitImplStmt>> impls;
+    //其余的全局变量\enum\trait\impl等等我都先不管
+    explicit Program(std::vector<std::shared_ptr<ConstStmt>> c,std::vector<std::shared_ptr<FnStmt>> f,std::vector<std::shared_ptr<EnumStmt>> e,
+        std::vector<std::shared_ptr<StructStmt>> s,std::vector<std::shared_ptr<InherentImplStmt>> in,
+        std::vector<std::shared_ptr<TraitStmt>> t,std::vector<std::shared_ptr<TraitImplStmt>> im):
+    ASTNode(TypeName::Program),cons(std::move(c)),fns(std::move(f)),enums(std::move(e)),structs(std::move(s)),inherits(std::move(in)),traits(std::move(t)),impls(std::move(im)){}
+    ~Program() override = default;
+    
+    
+    [[nodiscard]] std::vector<Element> get_children() const override;
+};
 #endif //AST_NODE_H

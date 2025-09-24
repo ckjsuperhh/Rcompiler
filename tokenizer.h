@@ -5,6 +5,7 @@
 #ifndef TOKENIZER_H
 #define TOKENIZER_H
 #include <iostream>
+#include <utility>
 #include<vector>
 #include<utility>
 #include<boost/regex.hpp>
@@ -13,6 +14,9 @@
     struct Token {
         TokenType type{};
         std::string value{};
+        Token():type(TokenType()){}
+        Token(const TokenType t, const char* v) : type(t), value(v) {}
+        Token(const TokenType t, std::string  v) : type(t), value(std::move(v)) {}
     };
 
     enum class TokenType {
@@ -88,15 +92,15 @@
         // 特殊类型
         Whitespace, // 空白（原WHITESPACE）
         Invalid,// 无效 token（原INVALID）
-        Integer, EqEq, Mod ,Eof // 文件结束
+        Integer, EqEq, Mod, Unit , self, Self,Eof // 文件结束
+
+
 
     };
 
     inline std::string TokenToOutput(const TokenType t) {
     switch (t) {
         // 字面量
-        case TokenType::Number:
-            return "Number";
         case TokenType::String:
             return "String";
         case TokenType::Identifier:
@@ -319,7 +323,10 @@
         }
 
         Token next_token() {
-            boost::regex keyword(R"(^\b(as|crate|false|mod|move|mut|ref|self|Self|super|true|type|unsafe|use|where|dyn|try|gen)\b)");
+            boost::regex keyword(R"(^\b(crate|mod|move|ref|self|Self|super|type|use|where|try|gen)\b)");
+            boost::regex bbool(R"(^\b(false|true)\b)");
+            boost::regex sself(R"(^\b(self)\b)");
+            boost::regex SSelf(R"(^\b(Self)\b)");
             boost::regex ttrait(R"(^\b(trait)\b)");
             boost::regex sstatic(R"(^\b(static)\b)");
             boost::regex sstruct(R"(^\b(struct)\b)");
@@ -328,7 +335,6 @@
             boost::regex iin(R"(^\b(in)\b)");
             boost::regex iimpl(R"(^\b(impl)\b)");
             boost::regex eenum(R"(^\b(enum)\b)");
-            boost::regex eexit(R"(^\b(exit)\b)");
             boost::regex ccontinue(R"(^\b()\b)");
             boost::regex cconst(R"(^\b(const)\b)");
             boost::regex bbreak(R"(^\b(break)\b)");
@@ -352,20 +358,28 @@
             boost::regex rbracket(R"(^\])") ;
             boost::regex lbracket(R"(^\[)") ;
             boost::regex comma(R"(^,)") ;
+            boost::regex unit(R"(^\(\)$)");
             boost::smatch match;
             while (boost::regex_search(start, end, match, whitespace, boost::match_continuous)) {
                 start += match.length();//跳过空白符
             }
             std::vector<Token> waiting_tokens;
+            if (boost::regex_search(start, end, match, bbool, boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::Bool, match.str());
+            }
+            if (boost::regex_search(start, end, match, sself, boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::self, match.str());
+            }
+            if (boost::regex_search(start, end, match, SSelf, boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::Self, match.str());
+            }
             // trait 关键字匹配
             if (boost::regex_search(start, end, match, ttrait, boost::match_continuous)) {
                 waiting_tokens.emplace_back(TokenType::Trait, match.str());
             }
-
-            if (boost::regex_search(start, end, match, eexit, boost::match_continuous)) {
-                waiting_tokens.emplace_back(TokenType::Exit, match.str());
+            if (boost::regex_search(start, end, match, unit, boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::Unit, match.str());
             }
-
             if (boost::regex_search(start, end, match, comma, boost::match_continuous)) {
                 waiting_tokens.emplace_back(TokenType::Comma, match.str());
             }

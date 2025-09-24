@@ -10,7 +10,6 @@
 #include "AST_node.h"
 #include "semantic check.h"
 
-#include "semantic.h"
 #include "tokenizer.h"
 
 enum class Preference {
@@ -61,6 +60,7 @@ public:
         }
         return false;
     }
+
     void rewind_to(const size_t pos) {
         current_pos = pos;
         current_token = lexer[pos];
@@ -236,6 +236,10 @@ public:
 
     std::shared_ptr<Expr> parse_group() {
         consume();
+        if (peek().type == TokenType::RParen) {
+            consume();
+            return std::make_shared<UnitExpr>();
+        }
         auto inner=parse_expression();
         expect(TokenType::RParen);
         consume();
@@ -249,7 +253,7 @@ public:
 
     std::shared_ptr<Expr> parse_break() {//我怎么判断有没有一个expr紧接在后边?
         consume();
-        if (peek().type == TokenType::Semicolon||peek().type == TokenType::RBracket) {
+        if (peek().type == TokenType::Semicolon||peek().type == TokenType::RBrace) {
             return std::make_shared<BreakExpr>();
         }
         auto expr=parse_expression();
@@ -258,7 +262,7 @@ public:
 
     std::shared_ptr<Expr> parse_loop() {
         consume();
-        expect(TokenType::LBracket);
+        expect(TokenType::LBrace);
         auto block=parse_block();
         return std::make_shared<LoopExpr>(std::move(block));
     }
@@ -270,7 +274,7 @@ public:
         auto expr=parse_expression();
         expect(TokenType::RParen);
         consume();
-        expect(TokenType::LBracket);
+        expect(TokenType::LBrace);
         auto body=parse_block();
         return std::make_shared<WhileExpr>(expr,body);
     }
@@ -282,16 +286,16 @@ public:
         auto expr=parse_expression();
         expect(TokenType::RParen);
         consume();
-        expect(TokenType::LBracket);
+        expect(TokenType::LBrace);
         auto then=parse_block();
         std::shared_ptr<Expr> else_body=nullptr;
         if (match(TokenType::Else)) {
             if (peek().type == TokenType::If) {
                 else_body=parse_if();
-            }else if (peek().type == TokenType::LBracket){
+            }else if (peek().type == TokenType::LBrace){
                 else_body=parse_block();
             }else {
-                throw std::runtime_error("else without an LBracket!");
+                throw std::runtime_error("else without an LBrace!");
             }
         }
         return std::make_shared<IfExpr>(std::move(expr),std::move(then),std::move(else_body));
@@ -299,7 +303,7 @@ public:
 
     std::shared_ptr<Expr> parse_return() {
         consume();
-        if (peek().type == TokenType::Semicolon||peek().type == TokenType::RBracket) {
+        if (peek().type == TokenType::Semicolon||peek().type == TokenType::RBrace) {
             return std::make_shared<ReturnExpr>();
         }
         auto expr=parse_expression();
@@ -309,7 +313,7 @@ public:
 
     std::shared_ptr<Expr> parse_block() {
         consume();
-        if (match(TokenType::RBracket)) {
+        if (match(TokenType::RBrace)) {
             return std::make_shared<BlockExpr>(std::vector<std::pair<std::shared_ptr<ASTNode>,bool>>());
         }
         std::vector<std::pair<std::shared_ptr<ASTNode>,bool>> elements;
@@ -317,7 +321,13 @@ public:
             auto st=parse_statement();
             bool has_semicolon=match(TokenType::Semicolon);
             elements.emplace_back(st,has_semicolon);
-        }while (match(TokenType::RBracket));
+            std::vector<std::string> tree = st->showTree(0,true);
+
+            // 逐行打印
+            for (const std::string& line : tree) {
+                std::cout << line << std::endl;
+            }
+        }while (!match(TokenType::RBrace));
         return std::make_shared<BlockExpr>(std::move(elements));
     }
 
@@ -329,12 +339,12 @@ public:
         expect(TokenType::Identifier);
         auto name=peek().value;
         consume();
-        expect(TokenType::LBracket);
+        expect(TokenType::LBrace);
         consume();
         std::vector<std::string> ids;
-        if (!match(TokenType::RBracket)) {
+        if (!match(TokenType::RBrace)) {
             do {
-                if (match(TokenType::RBracket)) {
+                if (match(TokenType::RBrace)) {
                     break;
                 }
                 expect(TokenType::Identifier);
@@ -357,10 +367,226 @@ public:
         expect(TokenType::Colon);
         consume();
         auto type_annotation = parse_type();
-        expect(TokenType::Equal);
+        std::shared_ptr<Expr> expr=nullptr;
+        if (match(TokenType::Equal)) {
+            expr=parse_expression();
+        }
+        return std::make_shared<LetStmt>(name,std::move(type_annotation),std::move(expr),is_mutable);
+    }
+
+    std::shared_ptr<FnStmt> parse_function() {
         consume();
-        auto expr=parse_expression();
-        return std::make_shared<LetStmt>(is_mutable,name,std::move(type_annotation),std::move(expr));
+        expect(TokenType::Identifier);
+        auto name=peek().value;
+        consume();
+        expect(TokenType::LParen);
+        consume();
+        std::vector<Param> params;
+        if (!match(TokenType::RParen)) {
+            Param t;
+            if (parse_self(t)) {
+                params.emplace_back(std::move(t));
+            }
+            while (match(TokenType::Comma)) {
+                if (match(TokenType::RParen)) {
+                    break;
+                }
+                expect(TokenType::Identifier);
+                t.name=peek().value;
+                consume();
+                expect(TokenType::Colon);
+                consume();
+                t.type=parse_type();
+                params.emplace_back(t);
+            }
+        }
+        std::shared_ptr<Type> func_type=nullptr;
+        if (match(TokenType::Arrow)) {
+            func_type=parse_type();
+        }
+        if (peek().type == TokenType::Semicolon) {
+            return std::make_shared<FnStmt>(name,params,std::move(func_type),nullptr);
+        }
+        expect(TokenType::LBrace);
+        auto body=parse_block();
+        return std::make_shared<FnStmt>(name,params,std::move(func_type),std::move(body));
+    }
+
+    bool parse_self(Param &p) {
+        if (!(peek().type==TokenType::self||peek(1).type==TokenType::self||peek(2).type==TokenType::self)) {
+            return false;
+        }
+        std::shared_ptr<Type> type;
+        if (match(TokenType::And)) {
+            type->is_and=true;
+        }
+        if (match(TokenType::Mut)) {
+            type->is_mutable=true;
+        }
+        if (match(TokenType::self)) {
+            type->node_type=TypeName::selfType;
+        }else {
+            throw std::runtime_error("invalid things before self type");
+        }
+        p={"self",std::move(type)};
+        return true;
+    }
+
+    std::shared_ptr<Stmt> parse_impl() {
+    consume();
+    expect(TokenType::Identifier);
+    auto name = peek().value;
+    consume();
+
+    if (match(TokenType::For)) {
+        expect(TokenType::Identifier);
+        auto struct_name = peek().value;
+        consume();
+        expect(TokenType::LBrace);
+        consume();
+
+        std::vector<std::pair<std::shared_ptr<FnStmt>, bool>> fns;
+        std::vector<std::pair<std::shared_ptr<ConstStmt>, bool>> cons;
+
+        if (!match(TokenType::RBrace)) {
+            while (!match(TokenType::RBrace)) {
+                auto stmt = parse_statement();  // stmt是shared_ptr<Stmt>
+
+                if (stmt->node_type == TypeName::FnStmt) {
+                    // 使用dynamic_pointer_cast转换智能指针（关键修正）
+                    auto fn_stmt = std::dynamic_pointer_cast<FnStmt>(stmt);
+                    if (!fn_stmt) {
+                        throw std::runtime_error("Expected FnStmt in impl block");
+                    }
+                    fns.emplace_back(fn_stmt, match(TokenType::Semicolon));
+                } else if (stmt->node_type == TypeName::ConstStmt) {
+                    // 使用dynamic_pointer_cast转换智能指针（关键修正）
+                    auto const_stmt = std::dynamic_pointer_cast<ConstStmt>(stmt);
+                    if (!const_stmt) {
+                        throw std::runtime_error("Expected ConstStmt in impl block");
+                    }
+                    cons.emplace_back(const_stmt, match(TokenType::Semicolon));
+                } else {
+                    throw std::runtime_error("invalid things within impl scope");
+                }
+            }
+        }
+
+        return std::make_shared<TraitImplStmt>(name, struct_name, fns, cons);
+    }
+
+    expect(TokenType::LBrace);
+    consume();
+
+    std::vector<std::pair<std::shared_ptr<FnStmt>, bool>> fns;
+    std::vector<std::pair<std::shared_ptr<ConstStmt>, bool>> cons;
+
+    if (!match(TokenType::RBrace)) {
+        while (!match(TokenType::RBrace)) {
+            auto stmt = parse_statement();  // stmt是shared_ptr<Stmt>
+
+            if (stmt->node_type == TypeName::FnStmt) {
+                // 使用dynamic_pointer_cast转换智能指针（关键修正）
+                auto fn_stmt = std::dynamic_pointer_cast<FnStmt>(stmt);
+                if (!fn_stmt) {
+                    throw std::runtime_error("Expected FnStmt in impl block");
+                }
+                fns.emplace_back(fn_stmt, match(TokenType::Semicolon));
+            } else if (stmt->node_type == TypeName::ConstStmt) {
+                // 使用dynamic_pointer_cast转换智能指针（关键修正）
+                auto const_stmt = std::dynamic_pointer_cast<ConstStmt>(stmt);
+                if (!const_stmt) {
+                    throw std::runtime_error("Expected ConstStmt in impl block");
+                }
+                cons.emplace_back(const_stmt, match(TokenType::Semicolon));
+            } else {
+                throw std::runtime_error("invalid things within impl scope");
+            }
+        }
+    }
+
+    return std::make_shared<InherentImplStmt>(name, fns, cons);
+}
+
+std::shared_ptr<TraitStmt> parse_trait() {
+    consume();
+    expect(TokenType::Identifier);
+    auto name = peek().value;
+    consume();
+    expect(TokenType::LBrace);
+    consume();
+
+    std::vector<std::pair<std::shared_ptr<FnStmt>, bool>> fns;
+    std::vector<std::pair<std::shared_ptr<ConstStmt>, bool>> cons;
+
+    if (!match(TokenType::RBrace)) {
+        while (!match(TokenType::RBrace)) {
+            auto stmt = parse_statement();  // stmt是shared_ptr<Stmt>
+
+            if (stmt->node_type == TypeName::FnStmt) {
+                // 使用dynamic_pointer_cast转换智能指针（关键修正）
+                auto fn_stmt = std::dynamic_pointer_cast<FnStmt>(stmt);
+                if (!fn_stmt) {
+                    throw std::runtime_error("Expected FnStmt in trait block");
+                }
+                fns.emplace_back(fn_stmt, match(TokenType::Semicolon));
+            } else if (stmt->node_type == TypeName::ConstStmt) {
+                // 使用dynamic_pointer_cast转换智能指针（关键修正）
+                auto const_stmt = std::dynamic_pointer_cast<ConstStmt>(stmt);
+                if (!const_stmt) {
+                    throw std::runtime_error("Expected ConstStmt in trait block");
+                }
+                cons.emplace_back(const_stmt, match(TokenType::Semicolon));
+            } else {
+                throw std::runtime_error("invalid things within trait scope");
+            }
+        }
+    }
+
+    return std::make_shared<TraitStmt>(name, fns, cons);
+}
+
+
+    std::shared_ptr<StructStmt> parse_struct_declare() {
+        consume();
+        expect(TokenType::Identifier);
+        auto name=peek().value;
+        consume();
+        expect(TokenType::LBrace);
+        consume();
+        std::vector<Field> elements;
+        if (!match(TokenType::RBrace)) {
+            do {
+                if (match(TokenType::Comma)) {
+                    expect(TokenType::RBrace);
+                    consume();
+                    break;
+                }
+                expect(TokenType::Identifier);
+                std::string id=peek().value;
+                consume();
+                expect(TokenType::Colon);
+                consume();
+                auto type_annotation = parse_type();
+                elements.emplace_back(id,std::move(type_annotation));
+            }while (match(TokenType::Comma));
+        }
+        return std::make_shared<StructStmt>(name,elements);
+    }
+
+    std::shared_ptr<ConstStmt> parse_const() {
+        consume();
+        expect(TokenType::Identifier);
+        std::string name = peek().value;
+        consume();
+        expect(TokenType::Colon);
+        consume();
+        auto type_annotation = parse_type();
+        std::shared_ptr<Expr> expr=nullptr;
+        if (match(TokenType::Equal)) {
+            expr=parse_expression();
+        }
+        return std::make_shared<ConstStmt>(name,std::move(type_annotation),std::move(expr));
     }
 
     std::shared_ptr<ASTNode> parse_statement() {
@@ -381,7 +607,7 @@ public:
                 return parse_impl();
                 case TokenType::If://下边三个虽然是表达式，但是实际上他们在作为开头的时候，默认会进行一个直接的读入，作为块语句
                 return parse_if();
-            case TokenType::Loop:
+                case TokenType::Loop:
                 return parse_loop();
                 case TokenType::While:
                 return parse_while();
@@ -390,12 +616,155 @@ public:
         }
     }
 
-    std::shared_ptr<Type> parse_type() {
-
+    std::shared_ptr<Type> parse_basic_type() {
+        std::string type_name = current_token.value;
+        if (type_name=="bool") {
+            consume();
+            return std::make_shared<BasicType>(TypeName::Bool);
+        }
+        if (type_name=="char") {
+            consume();
+            return std::make_shared<BasicType>(TypeName::Char);
+        }
+        if (type_name=="String") {
+            consume();
+            return std::make_shared<BasicType>(TypeName::String);
+        }
+        if (type_name=="i32") {
+            consume();
+            return std::make_shared<BasicType>(TypeName::i32);
+        }
+        if (type_name=="u32") {
+            consume();
+            return std::make_shared<BasicType>(TypeName::u32);
+        }
+        if (type_name=="isize") {
+            consume();
+            return std::make_shared<BasicType>(TypeName::isize);
+        }
+        if (type_name=="usize") {
+            consume();
+            return std::make_shared<BasicType>(TypeName::usize);
+        }
+        if (type_name=="()") {
+            consume();
+            return std::make_shared<BasicType>(TypeName::unit);
+        }
+        consume();
+        return std::make_shared<ErrorType>();
     }
 
 
 
+    std::shared_ptr<Type> parse_array_type() {
+        consume();
+        std::shared_ptr<Type> elem_type = parse_type();
+        expect(TokenType::Semicolon);
+        consume();
+        auto length=parse_expression();
+        expect(TokenType::RBrace);
+        consume();
+        if (const auto a=dynamic_cast<ArrayType*>(elem_type.get());a) {
+            return std::make_shared<ArrayType>(elem_type,length,a->dimension+1);
+        }
+        return std::make_shared<ArrayType>(elem_type, length);
+    }
 
+
+    std::shared_ptr<Type> parse_identifier_type() {
+        auto name=current_token.value;
+        consume();
+        return std::make_shared<IdentifierType>(name);
+    }
+
+    std::shared_ptr<Type> parse_Self_type() {
+        consume();
+        return std::make_shared<SelfType>();
+    }
+
+    std::shared_ptr<Type> parse_type() {
+        bool is_and=false;
+        bool is_mutable=false;
+        if (match(TokenType::And)) {
+            is_and=true;
+        }
+        if (match(TokenType::Mut)) {
+            is_mutable=true;
+        }
+        std::shared_ptr<Type> type;
+        switch (peek().type) {
+            case TokenType::LBracket:
+                type= parse_array_type();
+                break;
+            case TokenType::Identifier:
+                type= parse_identifier_type();
+                break;
+            case TokenType::Self:
+                type= parse_Self_type();
+                break;
+            default:
+                type= parse_basic_type();
+        }
+        type->is_and=is_and;
+        type->is_mutable=is_mutable;
+        return type;
+    }
+
+std::shared_ptr<ASTNode> parse() {
+    std::vector<std::shared_ptr<ConstStmt>> cons;
+    std::vector<std::shared_ptr<FnStmt>> fns;
+    std::vector<std::shared_ptr<EnumStmt>> enums;
+    std::vector<std::shared_ptr<StructStmt>> structs;
+    std::vector<std::shared_ptr<InherentImplStmt>> inherits;
+    std::vector<std::shared_ptr<TraitStmt>> traits;
+    std::vector<std::shared_ptr<TraitImplStmt>> impls;
+
+    while (!is_at_end()) {
+        auto stmt = parse_statement();  // stmt 是 shared_ptr<ASTNode>
+
+        // 使用 dynamic_pointer_cast 转换智能指针（关键修正）
+        switch (stmt->get_type()) {
+            case TypeName::ConstStmt: {
+                auto const_stmt = std::dynamic_pointer_cast<ConstStmt>(stmt);
+                if (const_stmt) cons.emplace_back(const_stmt);
+                break;
+            }
+            case TypeName::FnStmt: {
+                auto fn_stmt = std::dynamic_pointer_cast<FnStmt>(stmt);
+                if (fn_stmt) fns.emplace_back(fn_stmt);
+                break;
+            }
+            case TypeName::EnumStmt: {
+                auto enum_stmt = std::dynamic_pointer_cast<EnumStmt>(stmt);
+                if (enum_stmt) enums.emplace_back(enum_stmt);
+                break;
+            }
+            case TypeName::StructStmt: {
+                auto struct_stmt = std::dynamic_pointer_cast<StructStmt>(stmt);
+                if (struct_stmt) structs.emplace_back(struct_stmt);
+                break;
+            }
+            case TypeName::InherentImplStmt: {
+                auto inherent_stmt = std::dynamic_pointer_cast<InherentImplStmt>(stmt);
+                if (inherent_stmt) inherits.emplace_back(inherent_stmt);
+                break;
+            }
+            case TypeName::TraitStmt: {
+                auto trait_stmt = std::dynamic_pointer_cast<TraitStmt>(stmt);
+                if (trait_stmt) traits.emplace_back(trait_stmt);
+                break;
+            }
+            case TypeName::TraitImplStmt: {
+                auto impl_stmt = std::dynamic_pointer_cast<TraitImplStmt>(stmt);
+                if (impl_stmt) impls.emplace_back(impl_stmt);
+                break;
+            }
+            default:
+                throw std::runtime_error("Unexpected statement type");
+        }
+    }
+
+    return std::make_shared<Program>(cons, fns, enums, structs, inherits, traits, impls);
+}
 };
 #endif //PARSER_H

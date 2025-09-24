@@ -7,4 +7,5 @@ add_executable(Compiler main.cpp
         tokenizer.h
         AST_node.h
         "semantic check.h"
-        parser.h)
+        parser.h
+        AST_node.cpp)

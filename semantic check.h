@@ -78,13 +78,13 @@ public:
     static void error(const std::string& msg) {
         throw std::runtime_error(msg);
     }
-    void analyze(const std::shared_ptr<ASTNode> &root) {
-        root->accept1(this);
-        root->accept2(this);
-        root->accept3(this);
-        root->accept4(this);
-        root->accept5(this);
-    }
+    // void analyze(const std::shared_ptr<ASTNode> &root) {
+    //     root->accept1(this);
+    //     root->accept2(this);
+    //     root->accept3(this);
+    //     root->accept4(this);
+    //     root->accept5(this);
+    // }
     void phase1(const BasicType *node) {
 
     }

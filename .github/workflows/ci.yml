@@ -19,6 +19,7 @@ jobs:
       - name: Install toolchain
         run: |
           sudo apt-get update
+          sudo apt-get install -y libboost-regex-dev
           sudo apt-get install -y cmake ninja-build g++
 
       # 3. 配置 → 编译 → 测试 一条龙

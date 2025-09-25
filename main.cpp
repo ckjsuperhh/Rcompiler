@@ -5,16 +5,17 @@
 #include "tokenizer.h"
 #include "parser.h"
 int main() {
-    std::ifstream file("../../testcases/type/type1.txt");
+    std::ifstream file("my.in");
     if (!file.is_open()) {
         std::cerr<<"unable to open the file"<<std::endl;
         return -1;
     }
     std::string input((std::istreambuf_iterator(file)),std::istreambuf_iterator<char>());
+    std::cerr<<input<<std::endl;
     try {
         Tokenizer t(input);
         auto v=t.tokenize();
-        //t.ShowOutput(v);
+        t.ShowOutput(v);
         Parser p(v);
         auto root=p.parse();
         if (!root) {
@@ -26,7 +27,11 @@ int main() {
         for (const std::string& line : tree) {
             std::cout << line << std::endl;
         }
-    }catch (...) {
+    }catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        exit(-1);
+    }catch (...) {  // 再捕获所有其他异常
+        std::cerr << "Unknown error occurred" << std::endl;
         exit(-1);
     }
     return 0;

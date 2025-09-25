@@ -3,9 +3,13 @@ project(Compiler)
 
 set(CMAKE_CXX_STANDARD 20)
 
+enable_testing()
+add_subdirectory(test)
+
 add_executable(Compiler main.cpp
         tokenizer.h
         AST_node.h
-        "semantic check.h"
+        semantic_check.h
         parser.h
-        AST_node.cpp)
+        AST_node.cpp
+        )

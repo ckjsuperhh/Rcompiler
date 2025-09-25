@@ -11,7 +11,7 @@
 #include <utility>
 #include <variant>
 #include <vector>
-#include "semantic check.h"
+#include "semantic_check.h"
 struct Expr;
 struct Stmt;
 class SemanticCheck;
@@ -308,7 +308,7 @@ struct BinaryExpr : Expr {
     std::string op;
     std::shared_ptr<Expr> right;
 
-    BinaryExpr(std::shared_ptr<Expr> left, std::string op, std::shared_ptr<Expr> right,std::shared_ptr<Type> t)
+    BinaryExpr(std::shared_ptr<Expr> left, std::string op, std::shared_ptr<Expr> right,std::shared_ptr<Type> t=nullptr)
         : Expr(TypeName::BinaryExpr,std::move(t)), left(std::move(left)), op(std::move(op)), right(std::move(right)) {
     }
     

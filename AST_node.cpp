@@ -192,7 +192,7 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back("func_return_type:");
         children.emplace_back(return_type.get());
     } else {
-        children.emplace_back("func_return_type: void");  // 默认无返回值场景
+        children.emplace_back("func_return_type: unit");  // 默认无返回值场景
     }
 
     // 添加可变性和引用标记（Type 基类成员，函数类型通常无，但保留兼容性）

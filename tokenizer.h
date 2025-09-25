@@ -7,7 +7,6 @@
 #include <iostream>
 #include <utility>
 #include<vector>
-#include<utility>
 #include<boost/regex.hpp>
     enum class TokenType;
 
@@ -30,7 +29,7 @@
         Minus, // -（二元）
         Star, // *（原Multiply）
         Slash, // /（原Divide）
-        Caret, // ^（原Power）
+        Xor, // ^
         And, // 与运算
         Or, // 或运算
         Not, // 非运算
@@ -40,8 +39,6 @@
         Greater, // >
         LessEqual, // <=
         GreaterEqual, // >=
-        Positive, // +（一元）
-        Negative, // -（一元）
 
         // 标点符号
         LParen, // (
@@ -57,9 +54,6 @@
         DoubleColon, // ::（原ColonColon的规范命名）
         Arrow, // ->
         FatArrow, // =>
-        DotDot, // ..
-        DotDotEq, // ..=
-        MacroBang, // !（宏相关）
         Underscore, // _
 
         // 关键字
@@ -115,8 +109,8 @@
             return "Star";
         case TokenType::Slash:
             return "Slash";
-        case TokenType::Caret:
-            return "Caret";
+        case TokenType::Xor:
+            return "Xor";
         case TokenType::And:
             return "And";
         case TokenType::Or:
@@ -135,10 +129,6 @@
             return "LessEqual";
         case TokenType::GreaterEqual:
             return "GreaterEqual";
-        case TokenType::Positive:
-            return "Positive";
-        case TokenType::Negative:
-            return "Negative";
 
         // 标点符号
         case TokenType::LParen:
@@ -167,12 +157,6 @@
             return "Arrow";
         case TokenType::FatArrow:
             return "FatArrow";
-        case TokenType::DotDot:
-            return "DotDot";
-        case TokenType::DotDotEq:
-            return "DotDotEq";
-        case TokenType::MacroBang:
-            return "MacroBang";
         case TokenType::Underscore:
             return "Underscore";
 
@@ -314,9 +298,17 @@
         std::vector<Token> tokenize() {
             this->cleanComments();
             std::vector<Token> tokens;
+            boost::regex whitespace(R"(^\s+)");
+            boost::smatch match;
             while (start != end) {
+                while (boost::regex_search(start, end, match, whitespace, boost::match_continuous)) {
+                    start += match.length();//跳过空白符
+                }
                 tokens.emplace_back(next_token());
-                std::cerr<<tokens.back().value<<std::endl;
+                while (boost::regex_search(start, end, match, whitespace, boost::match_continuous)) {
+                    start += match.length();//跳过空白符
+                }
+                // std::cerr<<tokens.back().value<<std::endl;
             }
             tokens.emplace_back(TokenType::Eof,"");
             return tokens;
@@ -354,15 +346,12 @@
             boost::regex semicolon(R"(^;)");
             boost::regex colon(R"(^:)");
             boost::regex doublecolon(R"(^::)");
-            boost::regex whitespace(R"(^\s+)");
+
             boost::regex rbracket(R"(^\])") ;
             boost::regex lbracket(R"(^\[)") ;
             boost::regex comma(R"(^,)") ;
             boost::regex unit(R"(^\(\)$)");
             boost::smatch match;
-            while (boost::regex_search(start, end, match, whitespace, boost::match_continuous)) {
-                start += match.length();//跳过空白符
-            }
             std::vector<Token> waiting_tokens;
             if (boost::regex_search(start, end, match, bbool, boost::match_continuous)) {
                 waiting_tokens.emplace_back(TokenType::Bool, match.str());
@@ -544,6 +533,9 @@
 
         static void ShowOutput(const std::vector<Token> &tokens) {
             for (const auto &[type, value]: tokens) {
+                if (type==TokenType::String) {
+                    std::cout<<value<<std::endl;
+                }
                 std::cout << TokenToOutput(type) << ":" << value << std::endl;
             }
         }

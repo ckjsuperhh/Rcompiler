@@ -8,7 +8,7 @@
 #include <future>
 
 #include "AST_node.h"
-#include "semantic check.h"
+#include "semantic_check.h"
 
 #include "tokenizer.h"
 
@@ -20,7 +20,6 @@ enum class Preference {
     EQUALITY, // ==, !=
     XOR, // ^  （新增：异或）
     COMPARISON = 6, // <, >, <=, >=
-    RANGE = 7, // .., ..=
     TERM = 8, // +, -
     FACTOR = 9, // *, /, %
     UNARY = 10, // !, - (一元)
@@ -87,6 +86,9 @@ public:
             rules[static_cast<size_t>(TokenType::Not)].prefix = &Parser::parse_unary;
             rules[static_cast<size_t>(TokenType::Minus)].prefix = &Parser::parse_unary;
             rules[static_cast<size_t>(TokenType::LParen)].prefix = &Parser::parse_group;
+            rules[static_cast<size_t>(TokenType::LBrace)].prefix = &Parser::parse_block;
+
+
 
             rules[static_cast<size_t>(TokenType::LParen)].infix = &Parser::parse_call;
             rules[static_cast<size_t>(TokenType::LParen)].precedence=Preference::CALL;
@@ -94,6 +96,30 @@ public:
             rules[static_cast<size_t>(TokenType::LBracket)].precedence = Preference::CALL;
             rules[static_cast<size_t>(TokenType::Dot)].infix = &Parser::parse_field;
             rules[static_cast<size_t>(TokenType::Dot)].precedence = Preference::CALL;
+            rules[static_cast<size_t>(TokenType::Plus)].infix = &Parser::parse_binary;
+            rules[static_cast<size_t>(TokenType::Plus)].precedence=Preference::TERM;
+            rules[static_cast<size_t>(TokenType::Minus)].infix = &Parser::parse_binary;
+            rules[static_cast<size_t>(TokenType::Minus)].precedence=Preference::TERM;
+            rules[static_cast<size_t>(TokenType::Star)].infix = &Parser::parse_binary;
+            rules[static_cast<size_t>(TokenType::Star)].precedence=Preference::FACTOR;
+            rules[static_cast<size_t>(TokenType::Slash)].infix = &Parser::parse_binary;
+            rules[static_cast<size_t>(TokenType::Slash)].precedence=Preference::FACTOR;
+            rules[static_cast<size_t>(TokenType::Mod)].infix = &Parser::parse_binary;
+            rules[static_cast<size_t>(TokenType::Mod)].precedence=Preference::FACTOR;
+            rules[static_cast<size_t>(TokenType::Greater)].infix = &Parser::parse_binary;
+            rules[static_cast<size_t>(TokenType::Greater)].precedence=Preference::COMPARISON;
+            rules[static_cast<size_t>(TokenType::Less)].infix = &Parser::parse_binary;
+            rules[static_cast<size_t>(TokenType::Less)].precedence=Preference::COMPARISON;
+            rules[static_cast<size_t>(TokenType::GreaterEqual)].infix = &Parser::parse_binary;
+            rules[static_cast<size_t>(TokenType::GreaterEqual)].precedence=Preference::COMPARISON;
+            rules[static_cast<size_t>(TokenType::LessEqual)].infix = &Parser::parse_binary;
+            rules[static_cast<size_t>(TokenType::LessEqual)].precedence=Preference::COMPARISON;
+            rules[static_cast<size_t>(TokenType::Xor)].infix = &Parser::parse_binary;
+            rules[static_cast<size_t>(TokenType::Xor)].precedence=Preference::XOR;
+            rules[static_cast<size_t>(TokenType::EqEq)].infix = &Parser::parse_binary;
+            rules[static_cast<size_t>(TokenType::EqEq)].precedence=Preference::EQUALITY;
+            rules[static_cast<size_t>(TokenType::NotEqual)].infix = &Parser::parse_binary;
+            rules[static_cast<size_t>(TokenType::NotEqual)].precedence=Preference::EQUALITY;
 
 
 
@@ -125,6 +151,47 @@ public:
             left = (this->*infix)(std::move(left));
         }
         return left;
+    }
+
+    std::shared_ptr<Expr> parse_binary(std::shared_ptr<Expr> left) {
+        std::string op;
+        switch (peek().type) {
+            case TokenType::Plus:
+                op = "+";
+                break;
+                case TokenType::Minus:
+                op = "-";
+                break;
+                case TokenType::Star:
+                op = "*";
+                break;
+                case TokenType::Slash:
+                op="/";
+                break;
+                case TokenType::Mod:
+                op="%";
+                break;
+                case TokenType::Greater:
+                op=">";
+                break;
+                case TokenType::GreaterEqual:
+                op=">=";
+                break;
+                case TokenType::Less:
+                op="<";
+                break;
+                case TokenType::LessEqual:
+                op="<=";
+                break;
+                case TokenType::Xor:
+                op="^";
+                break;
+            default:
+                throw std::runtime_error("Unexpected op");
+        }
+        consume();
+        auto right=parse_expression();
+        return std::make_shared<BinaryExpr>(left,op,right);
     }
 
     std::shared_ptr<Expr> parse_literal() {
@@ -321,12 +388,6 @@ public:
             auto st=parse_statement();
             bool has_semicolon=match(TokenType::Semicolon);
             elements.emplace_back(st,has_semicolon);
-            std::vector<std::string> tree = st->showTree(0,true);
-
-            // 逐行打印
-            for (const std::string& line : tree) {
-                std::cout << line << std::endl;
-            }
         }while (!match(TokenType::RBrace));
         return std::make_shared<BlockExpr>(std::move(elements));
     }
@@ -724,6 +785,7 @@ std::shared_ptr<ASTNode> parse() {
 
         // 使用 dynamic_pointer_cast 转换智能指针（关键修正）
         switch (stmt->get_type()) {
+            // std::cerr<<stmt->get_type()
             case TypeName::ConstStmt: {
                 auto const_stmt = std::dynamic_pointer_cast<ConstStmt>(stmt);
                 if (const_stmt) cons.emplace_back(const_stmt);

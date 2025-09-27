@@ -8,38 +8,73 @@
 
 // 辅助函数：获取节点类型的字符串表示
 std::string get_node_type_str(TypeName type) {
-    switch (type) {
-        case TypeName::Int: return "Int";
-        case TypeName::Float: return "Float";
-        case TypeName::Bool: return "Bool";
-        case TypeName::Void: return "Void";
-        case TypeName::BasicType: return "BasicType";
-        case TypeName::ArrayType: return "ArrayType";
-        case TypeName::LiteralExpr: return "LiteralExpr";
-        case TypeName::BlockExpr: return "BlockExpr";
-        case TypeName::ArrayInitExpr: return "ArrayInitExpr";
-        case TypeName::ArrayAccessExpr: return "ArrayAccessExpr";
-        case TypeName::BinaryExpr: return "BinaryExpr";
-        case TypeName::UnaryExpr: return "UnaryExpr";
-        case TypeName::PathExpr: return "PathExpr";
-        case TypeName::CallExpr: return "CallExpr";
-        case TypeName::FieldAccessExpr: return "FieldAccessExpr";
-        case TypeName::IfExpr: return "IfExpr";
-        case TypeName::ReturnExpr: return "ReturnExpr";
-        case TypeName::LoopExpr: return "LoopExpr";
-        case TypeName::WhileExpr: return "WhileExpr";
-        case TypeName::ConstStmt: return "ConstStmt";
-        case TypeName::FnStmt: return "FnStmt";
-        case TypeName::StructStmt: return "StructStmt";
-        case TypeName::EnumStmt: return "EnumStmt";
-        case TypeName::TraitStmt: return "TraitStmt";
-        case TypeName::LetStmt: return "LetStmt";
-        case TypeName::AssignmentStmt: return "AssignmentStmt";
-        case TypeName::UnitExpr: return "UnitExpr";
-        case TypeName::Program: return "Program";
-        default: return "UnknownType";
-    }
+    static const std::unordered_map<TypeName, std::string> type_map = {
+        // 基础类型
+        {TypeName::Int, "Int"},
+        {TypeName::Float, "Float"},
+        {TypeName::Bool, "Bool"},
+        {TypeName::Void, "Void"},
+        {TypeName::Uint, "Uint"},
+        {TypeName::String, "String"},
+        {TypeName::Char, "Char"},
+        {TypeName::i32, "i32"},
+        {TypeName::u32, "u32"},
+        {TypeName::isize, "isize"},
+        {TypeName::usize, "usize"},
+        {TypeName::unit, "unit"},
+
+        // 复合类型
+        {TypeName::BasicType, "BasicType"},
+        {TypeName::ArrayType, "ArrayType"},
+        {TypeName::TupleType, "TupleType"},
+        {TypeName::StructType, "StructType"},
+        {TypeName::FunctionType, "FunctionType"},
+        {TypeName::ErrorType, "ErrorType"},
+        {TypeName::IdentifierType, "IdentifierType"},
+        {TypeName::selfType, "selfType"},
+        {TypeName::SelfType, "SelfType"},
+        {TypeName::ArrayAccessType, "ArrayAccessType"},
+
+        // 表达式
+        {TypeName::LiteralExpr, "LiteralExpr"},
+        {TypeName::VariableExpr, "VariableExpr"},
+        {TypeName::BinaryExpr, "BinaryExpr"},
+        {TypeName::UnaryExpr, "UnaryExpr"},
+        {TypeName::CallExpr, "CallExpr"},
+        {TypeName::IfExpr, "IfExpr"},
+        {TypeName::WhileExpr, "WhileExpr"},
+        {TypeName::LoopExpr, "LoopExpr"},
+        {TypeName::RangeExpr, "RangeExpr"},
+        {TypeName::ReturnExpr, "ReturnExpr"},
+        {TypeName::UnderscoreExpr, "UnderscoreExpr"},
+        {TypeName::UnitExpr, "UnitExpr"},
+        {TypeName::BlockExpr, "BlockExpr"},
+        {TypeName::PathExpr, "PathExpr"},
+        {TypeName::AsExpr, "AsExpr"},
+        {TypeName::GroupedExpr,"GroupedExpr"},
+        {TypeName::ArrayAccessExpr,"ArrayAccessExpr"},
+        {TypeName::ArrayInitExpr,"ArrayInitExpr"},
+        {TypeName::ArraySimplifiedExpr,"ArraySimplifiedExpr"},
+
+        // 语句
+        {TypeName::LetStmt, "LetStmt"},
+        {TypeName::ConstStmt, "ConstStmt"},
+        {TypeName::AssignmentStmt, "AssignmentStmt"},
+        {TypeName::FnStmt, "FnStmt"},
+        {TypeName::StructStmt, "StructStmt"},
+        {TypeName::EnumStmt, "EnumStmt"},
+        {TypeName::TraitStmt, "TraitStmt"},
+        {TypeName::TraitImplStmt, "TraitImplStmt"},
+        {TypeName::InherentImplStmt, "InherentImplStmt"},
+
+        // 其他
+        {TypeName::Program, "Program"},
+        {TypeName::Error, "Error"}
+    };
+    auto it = type_map.find(type);
+    return (it != type_map.end()) ? it->second : "Unknown";
 }
+
 
 // 基础 AST 节点的显示函数
 std::vector<std::string> ASTNode::showSelf() const {
@@ -535,7 +570,7 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
     }
 
     // 添加赋值运算符
-    children.emplace_back("op: =");
+    children.emplace_back("op:"+op);
 
     // 添加右操作数（赋值源）
     if (right) {
@@ -573,6 +608,69 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
     }
 
     // 添加类型信息
+    if (exprType) {
+        children.emplace_back("type:");
+        children.emplace_back(exprType.get());
+    }
+
+    return children;
+}
+
+// StructExpr的get_children实现
+[[nodiscard]] std::vector<Element> StructExpr::get_children() const {
+    std::vector<Element> children;
+
+    // 添加结构体名称表达式（如标识符或路径）
+    if (structname) {
+        children.emplace_back("struct_name:");
+        children.emplace_back(structname.get());  // 添加Expr类型的子节点
+    } else {
+        children.emplace_back("struct_name: null");
+    }
+
+    // 添加应用列表（application类型的子项）
+    children.emplace_back("applications(count: " + std::to_string(apps.size()) + "):");
+    for (size_t i = 0; i < apps.size(); ++i) {
+        // 假设application包含name和expr成员，这里根据实际定义调整
+        if (apps[i].name) {
+            children.emplace_back("  app[" + std::to_string(i) + "]_name:");
+            children.emplace_back(apps[i].name.get());  // 添加Expr类型的子节点
+        } else {
+            children.emplace_back("  app[" + std::to_string(i) + "]_name: null");
+        }
+        if (apps[i].variable) {
+            children.emplace_back("  app[" + std::to_string(i) + "]_variable:");
+            children.emplace_back(apps[i].variable.get());  // 添加Expr类型的子节点
+        } else {
+            children.emplace_back("  app[" + std::to_string(i) + "]_variable: null");
+        }
+    }
+    if (exprType) {
+        children.emplace_back("type:");
+        children.emplace_back(exprType.get());
+    }
+    return children;
+}
+
+// AsExpr的get_children实现
+[[nodiscard]] std::vector<Element> AsExpr::get_children() const {
+    std::vector<Element> children;
+
+    // 添加被转换的表达式
+    if (expr) {
+        children.emplace_back("cast_expression:");
+        children.emplace_back(expr.get());  // 添加Expr类型的子节点
+    } else {
+        children.emplace_back("cast_expression: null");
+    }
+
+    // 添加目标类型
+    if (type) {
+        children.emplace_back("target_type:");
+        children.emplace_back(type.get());  // 添加Type类型的子节点
+    } else {
+        children.emplace_back("target_type: unknown");
+    }
     if (exprType) {
         children.emplace_back("type:");
         children.emplace_back(exprType.get());

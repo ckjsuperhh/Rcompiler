@@ -4,17 +4,20 @@
 
 #ifndef PARSER_H
 #define PARSER_H
-#include <cmath>
 #include <future>
-
 #include "AST_node.h"
 #include "semantic_check.h"
 
 #include "tokenizer.h"
+    #include <string>
+#include <unordered_map>
+
+#include "AST_node.h"
 
 enum class Preference {
     LOWEST,
     ASSIGNMENT, // =
+    AS,
     OR, // ||
     AND, // &&
     EQUALITY, // ==, !=
@@ -34,12 +37,99 @@ public:
     Token current_token = lexer[0];
     Parser()=default;
     explicit Parser(const std::vector<Token> &l):lexer(l){}
+
+
+static std::string get_type_str(TokenType type) {
+    static const std::unordered_map<TokenType, std::string> type_map = {
+        // 字面量
+        {TokenType::String, "String"},
+        {TokenType::Identifier, "Identifier"},
+        {TokenType::Char, "Char"},
+        {TokenType::Bool, "Bool"},
+        {TokenType::Integer, "Integer"},
+
+        // 运算符
+        {TokenType::Plus, "Plus"},
+        {TokenType::Minus, "Minus"},
+        {TokenType::Star, "Star"},
+        {TokenType::Slash, "Slash"},
+        {TokenType::Xor, "Xor"},
+        {TokenType::And, "And"},
+        {TokenType::Or, "Or"},
+        {TokenType::Not, "Not"},
+        {TokenType::Equal, "Equal"},
+        {TokenType::NotEqual, "NotEqual"},
+        {TokenType::Less, "Less"},
+        {TokenType::Greater, "Greater"},
+        {TokenType::LessEqual, "LessEqual"},
+        {TokenType::GreaterEqual, "GreaterEqual"},
+        {TokenType::As, "As"},
+        {TokenType::Mod, "Mod"},
+        {TokenType::EqEq, "EqEq"},
+
+        // 标点符号
+        {TokenType::LParen, "LParen"},
+        {TokenType::RParen, "RParen"},
+        {TokenType::LBracket, "LBracket"},
+        {TokenType::RBracket, "RBracket"},
+        {TokenType::LBrace, "LBrace"},
+        {TokenType::RBrace, "RBrace"},
+        {TokenType::Comma, "Comma"},
+        {TokenType::Dot, "Dot"},
+        {TokenType::Semicolon, "Semicolon"},
+        {TokenType::Colon, "Colon"},
+        {TokenType::DoubleColon, "DoubleColon"},
+        {TokenType::Arrow, "Arrow"},
+        {TokenType::FatArrow, "FatArrow"},
+        {TokenType::Underscore, "Underscore"},
+
+        // 关键字
+        {TokenType::Await, "Await"},
+        {TokenType::Break, "Break"},
+        {TokenType::Continue, "Continue"},
+        {TokenType::Return, "Return"},
+        {TokenType::Exit, "Exit"},
+        {TokenType::If, "If"},
+        {TokenType::Else, "Else"},
+        {TokenType::Match, "Match"},
+        {TokenType::Loop, "Loop"},
+        {TokenType::For, "For"},
+        {TokenType::While, "While"},
+        {TokenType::In, "In"},
+        {TokenType::Struct, "Struct"},
+        {TokenType::Enum, "Enum"},
+        {TokenType::Union, "Union"},
+        {TokenType::Const, "Const"},
+        {TokenType::Static, "Static"},
+        {TokenType::Unsafe, "Unsafe"},
+        {TokenType::Async, "Async"},
+        {TokenType::Let, "Let"},
+        {TokenType::Mut, "Mut"},
+        {TokenType::Fn, "Fn"},
+        {TokenType::Trait, "Trait"},
+        {TokenType::Impl, "Impl"},
+        {TokenType::Label, "Label"},
+
+        // 特殊类型
+        {TokenType::Whitespace, "Whitespace"},
+        {TokenType::Invalid, "Invalid"},
+        {TokenType::Unit, "Unit"},
+        {TokenType::self, "self"},
+        {TokenType::Self, "Self"},
+        {TokenType::Eof, "Eof"}
+    };
+
+    auto it = type_map.find(type);
+    return (it != type_map.end()) ? it->second : "Unknown";
+}
+
     void consume() {
+        std::cerr<<"Consuming:("<<get_type_str(current_token.type)<<")"<<current_token.value<<std::endl;
         current_token = lexer[++current_pos];
     }
     void expect(const TokenType expected_type) const {
         if (current_token.type != expected_type) {
-            throw std::runtime_error("Runtime error! Unexpected type!");
+            throw std::runtime_error("Expect:"+get_type_str(expected_type)+";Runtime error! Unexpected type!"+current_token.value);
         }
     }
     Token peek(const int i = 0) {
@@ -87,6 +177,11 @@ public:
             rules[static_cast<size_t>(TokenType::Minus)].prefix = &Parser::parse_unary;
             rules[static_cast<size_t>(TokenType::LParen)].prefix = &Parser::parse_group;
             rules[static_cast<size_t>(TokenType::LBrace)].prefix = &Parser::parse_block;
+            rules[static_cast<size_t>(TokenType::self)].prefix = &Parser::parse_path;
+            rules[static_cast<size_t>(TokenType::Return)].prefix = &Parser::parse_return;
+            rules[static_cast<size_t>(TokenType::Break)].prefix = &Parser::parse_break;
+            rules[static_cast<size_t>(TokenType::Continue)].prefix = &Parser::parse_continue;
+            rules[static_cast<size_t>(TokenType::Loop)].prefix = &Parser::parse_loop;
 
 
 
@@ -120,10 +215,20 @@ public:
             rules[static_cast<size_t>(TokenType::EqEq)].precedence=Preference::EQUALITY;
             rules[static_cast<size_t>(TokenType::NotEqual)].infix = &Parser::parse_binary;
             rules[static_cast<size_t>(TokenType::NotEqual)].precedence=Preference::EQUALITY;
-
-
-
-
+            rules[static_cast<size_t>(TokenType::As)].infix = &Parser::parse_as;
+            rules[static_cast<size_t>(TokenType::As)].precedence=Preference::AS;
+            rules[static_cast<size_t>(TokenType::LBrace)].infix = &Parser::parse_struct;
+            rules[static_cast<size_t>(TokenType::LBrace)].precedence=Preference::CALL;
+            rules[static_cast<size_t>(TokenType::Equal)].infix = &Parser::parse_assignment;
+            rules[static_cast<size_t>(TokenType::Equal)].precedence=Preference::ASSIGNMENT;
+            rules[static_cast<size_t>(TokenType::PlusEqual)].infix = &Parser::parse_assignment;
+            rules[static_cast<size_t>(TokenType::PlusEqual)].precedence=Preference::ASSIGNMENT;
+            rules[static_cast<size_t>(TokenType::MinusEqual)].infix = &Parser::parse_assignment;
+            rules[static_cast<size_t>(TokenType::MinusEqual)].precedence=Preference::ASSIGNMENT;
+            rules[static_cast<size_t>(TokenType::StarEqual)].infix = &Parser::parse_assignment;
+            rules[static_cast<size_t>(TokenType::StarEqual)].precedence=Preference::ASSIGNMENT;
+            rules[static_cast<size_t>(TokenType::SlashEqual)].infix = &Parser::parse_assignment;
+            rules[static_cast<size_t>(TokenType::SlashEqual)].precedence=Preference::ASSIGNMENT;
 
 
 
@@ -151,6 +256,12 @@ public:
             left = (this->*infix)(std::move(left));
         }
         return left;
+    }
+
+    std::shared_ptr<Expr> parse_as(std::shared_ptr<Expr> left) {
+        consume();
+        auto type=parse_type();
+        return std::make_shared<AsExpr>(left, type);
     }
 
     std::shared_ptr<Expr> parse_binary(std::shared_ptr<Expr> left) {
@@ -186,6 +297,12 @@ public:
                 case TokenType::Xor:
                 op="^";
                 break;
+                case TokenType::EqEq:
+                op="==";
+                break;
+                case TokenType::NotEqual:
+                op="!=";
+                break;
             default:
                 throw std::runtime_error("Unexpected op");
         }
@@ -217,6 +334,36 @@ public:
         return std::make_shared<LiteralExpr>(value,std::make_shared<BasicType>(t));
     }
 
+    std::shared_ptr<Expr> parse_assignment(std::shared_ptr<Expr> left) {
+        std::string op;
+        switch (peek().type) {
+            case TokenType::PlusEqual:
+                op="+=";
+                consume();
+                break;
+                case TokenType::MinusEqual:
+                op="-=";
+                consume();
+                break;
+                case TokenType::StarEqual:
+                op="*=";
+                consume();
+                break;
+                case TokenType::SlashEqual:
+                op="/=";
+                consume();
+                break;
+                case TokenType::Equal:
+                op="=";
+                consume();
+                break;
+                default:
+                throw std::runtime_error("Invalid type in assignment node");
+        }
+        auto right=parse_expression();
+        return std::make_shared<AssignmentExpr>(left,op,right);
+    }
+    
     std::shared_ptr<Expr> parse_path() {
         std::vector<std::string> segments;
         segments.push_back(peek().value);
@@ -290,6 +437,8 @@ public:
                 }
                 args.push_back(parse_expression());
             }while (match(TokenType::Comma));
+            expect(TokenType::RParen);
+            consume();
         }
         consume();
         return std::make_shared<CallExpr>(std::move(left),std::move(args));
@@ -392,8 +541,25 @@ public:
         return std::make_shared<BlockExpr>(std::move(elements));
     }
 
-    std::shared_ptr<Expr> parse_struct() {
-
+    std::shared_ptr<Expr> parse_struct(std::shared_ptr<Expr> left) {
+        consume();
+        std::vector<application> elements;
+        if (!match(TokenType::RBrace)) {
+            do {
+                if (check(TokenType::RBrace)) {
+                    break;
+                }
+                expect(TokenType::Identifier);
+                auto a=parse_expression();
+                expect(TokenType::Colon);
+                consume();
+                auto b=parse_expression();
+                elements.emplace_back(std::move(a),std::move(b));
+            }while (match(TokenType::Comma));
+            expect(TokenType::RBrace);
+            consume();
+        }
+        return std::make_shared<StructExpr>(left,elements);
     }
 
     std::shared_ptr<EnumStmt> parse_enum() {
@@ -425,8 +591,19 @@ public:
         expect(TokenType::Identifier);
         std::string name = peek().value;
         consume();
-        expect(TokenType::Colon);
-        consume();
+        if (!match(TokenType::Colon)) {
+            std::shared_ptr<Expr> expr=nullptr;
+            if (match(TokenType::Equal)) {
+                expr=parse_expression();
+            }
+            if(expr->node_type!=TypeName::StructExpr) {
+                throw std::runtime_error("Not a struct expression but omit the type declaration!");
+            }
+            auto type_annotation=std::make_shared<IdentifierType>(
+                dynamic_cast<PathExpr*>(dynamic_cast<StructExpr*>(
+                    expr.get())->structname.get())->segments[0]);
+            return std::make_shared<LetStmt>(name,std::move(type_annotation),std::move(expr),is_mutable);
+        }
         auto type_annotation = parse_type();
         std::shared_ptr<Expr> expr=nullptr;
         if (match(TokenType::Equal)) {
@@ -447,9 +624,22 @@ public:
             Param t;
             if (parse_self(t)) {
                 params.emplace_back(std::move(t));
-            }
-            while (match(TokenType::Comma)) {
-                if (match(TokenType::RParen)) {
+
+                while (match(TokenType::Comma)) {
+                    if (check(TokenType::RParen)) {
+                        break;
+                    }
+                    expect(TokenType::Identifier);
+                    t.name=peek().value;
+                    consume();
+                    expect(TokenType::Colon);
+                    consume();
+                    t.type=parse_type();
+                    params.emplace_back(t);
+                }
+            }else {
+                do {
+                    if (check(TokenType::RParen)) {
                     break;
                 }
                 expect(TokenType::Identifier);
@@ -459,7 +649,10 @@ public:
                 consume();
                 t.type=parse_type();
                 params.emplace_back(t);
+                }while (match(TokenType::Comma));
             }
+            expect(TokenType::RParen);
+            consume();
         }
         std::shared_ptr<Type> func_type=nullptr;
         if (match(TokenType::Arrow)) {
@@ -477,7 +670,7 @@ public:
         if (!(peek().type==TokenType::self||peek(1).type==TokenType::self||peek(2).type==TokenType::self)) {
             return false;
         }
-        std::shared_ptr<Type> type;
+        std::shared_ptr<IdentifierType> type=std::make_shared<IdentifierType>("selfType");
         if (match(TokenType::And)) {
             type->is_and=true;
         }
@@ -618,9 +811,7 @@ std::shared_ptr<TraitStmt> parse_trait() {
         std::vector<Field> elements;
         if (!match(TokenType::RBrace)) {
             do {
-                if (match(TokenType::Comma)) {
-                    expect(TokenType::RBrace);
-                    consume();
+                if (match(TokenType::RBrace)) {
                     break;
                 }
                 expect(TokenType::Identifier);
@@ -723,7 +914,7 @@ std::shared_ptr<TraitStmt> parse_trait() {
         expect(TokenType::Semicolon);
         consume();
         auto length=parse_expression();
-        expect(TokenType::RBrace);
+        expect(TokenType::RBracket);
         consume();
         if (const auto a=dynamic_cast<ArrayType*>(elem_type.get());a) {
             return std::make_shared<ArrayType>(elem_type,length,a->dimension+1);

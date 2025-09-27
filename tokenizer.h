@@ -39,6 +39,7 @@
         Greater, // >
         LessEqual, // <=
         GreaterEqual, // >=
+        As,
 
         // 标点符号
         LParen, // (
@@ -86,11 +87,13 @@
         // 特殊类型
         Whitespace, // 空白（原WHITESPACE）
         Invalid,// 无效 token（原INVALID）
-        Integer, EqEq, Mod, Unit , self, Self,Eof // 文件结束
+        Integer, EqEq, Mod, Unit , self, Self, Andand
+        , MinusEqual, SlashEqual,PlusEqual,StarEqual,Eof // 文件结束
 
 
 
     };
+
 
     inline std::string TokenToOutput(const TokenType t) {
     switch (t) {
@@ -197,8 +200,6 @@
             return "Static";
         case TokenType::Unsafe:
             return "Unsafe";
-        case TokenType::Async:
-            return "Async";
         case TokenType::Let:
             return "Let";
         case TokenType::Mut:
@@ -304,7 +305,9 @@
                 while (boost::regex_search(start, end, match, whitespace, boost::match_continuous)) {
                     start += match.length();//跳过空白符
                 }
+
                 tokens.emplace_back(next_token());
+                std::cerr<<"tokenizer:"<<TokenToOutput(tokens.back().type)<<":"<<tokens.back().value<<std::endl;
                 while (boost::regex_search(start, end, match, whitespace, boost::match_continuous)) {
                     start += match.length();//跳过空白符
                 }
@@ -316,6 +319,7 @@
 
         Token next_token() {
             boost::regex keyword(R"(^\b(crate|mod|move|ref|self|Self|super|type|use|where|try|gen)\b)");
+            boost::regex sstring("\"[a-zA-Z0-9]*\"");
             boost::regex bbool(R"(^\b(false|true)\b)");
             boost::regex sself(R"(^\b(self)\b)");
             boost::regex SSelf(R"(^\b(Self)\b)");
@@ -335,10 +339,18 @@
             boost::regex llet(R"(^\b(let)\b)");
             boost::regex ffn(R"(^\b(fn)\b)");
             boost::regex rreturn(R"(^\b(return)\b)");
+            boost::regex mmut(R"(^\b(mut)\b)");
             boost::regex wwhile(R"(^\b(while)\b)");
             boost::regex identifier(R"(^[a-zA-Z][a-zA-Z0-9_]*)");
             boost::regex integer(R"(^\d+(?:_\d+)*(?:_?(?:u32|i32|usize|isize))?)");
             boost::regex op(R"(^(==|!=|>=|<=|\+|\-|\*|\/|%|<|>|=))");
+            boost::regex arrow(R"(^->)");
+            boost::regex sle(R"(^/=)");
+            boost::regex ste(R"(^\*=)");
+            boost::regex pe(R"(^\+=)");
+            boost::regex me(R"(^\-=)");
+            boost::regex aand(R"(^&)");
+            boost::regex andand(R"(^&&)");
             boost::regex lparen(R"(^\()");
             boost::regex rparen(R"(^\))");
             boost::regex lbrace(R"(^\{)");
@@ -346,13 +358,55 @@
             boost::regex semicolon(R"(^;)");
             boost::regex colon(R"(^:)");
             boost::regex doublecolon(R"(^::)");
-
+            boost::regex cchar("'[a-zA-Z0-9]'");
+            boost::regex aas(R"(^\b(as)\b)");
             boost::regex rbracket(R"(^\])") ;
             boost::regex lbracket(R"(^\[)") ;
             boost::regex comma(R"(^,)") ;
+
+            boost::regex dot(R"(^\.)") ;
             boost::regex unit(R"(^\(\)$)");
             boost::smatch match;
             std::vector<Token> waiting_tokens;
+            if (boost::regex_search(start, end, match,eelse, boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::Else, match.str());
+            }
+            if (boost::regex_search(start, end, match,sstring, boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::String, match.str());
+            }
+            if (boost::regex_search(start, end, match,pe , boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::PlusEqual, match.str());
+            }
+            if (boost::regex_search(start, end, match,me , boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::MinusEqual, match.str());
+            }
+            if (boost::regex_search(start, end, match,ste , boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::StarEqual, match.str());
+            }
+            if (boost::regex_search(start, end, match,sle , boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::SlashEqual, match.str());
+            }
+            if (boost::regex_search(start, end, match,dot , boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::Dot, match.str());
+            }
+            if (boost::regex_search(start, end, match, aand , boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::And, match.str());
+            }
+            if (boost::regex_search(start, end, match, andand , boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::Andand, match.str());
+            }
+            if (boost::regex_search(start, end, match, arrow , boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::Arrow, match.str());
+            }
+            if (boost::regex_search(start, end, match, mmut , boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::Mut, match.str());
+            }
+            if (boost::regex_search(start, end, match, aas , boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::As, match.str());
+            }
+            if (boost::regex_search(start, end, match, cchar , boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::Char, match.str());
+            }
             if (boost::regex_search(start, end, match, bbool, boost::match_continuous)) {
                 waiting_tokens.emplace_back(TokenType::Bool, match.str());
             }
@@ -429,6 +483,10 @@
                     ty = TokenType::Slash;
                 } else if (op_str == "%") {
                     ty = TokenType::Mod;
+                } else if (op_str == "<") {
+                    ty=TokenType::Less;
+                } else if (op_str == ">") {
+                    ty = TokenType::Greater;
                 }
                 // 若都不匹配，保持默认的 Invalid
                 waiting_tokens.emplace_back(ty, match.str());

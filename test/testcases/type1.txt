@@ -1,12 +1,5 @@
-/*
-Author: Wenxin Zheng
-Time: 2025-08-08
-Verdict: Fail
-Comment: Type error: boolean cannot be assigned to integer
-*/
-
-// Type error: boolean cannot be assigned to integer
-fn main() {
-    let x: i32 = true;
-    exit(0);
+//semantic error:array index should be usize
+fn main(){
+    let x:[i32;5]=[5;5];
+    let mut b:i32=x[('a'=='a') as isize +3];
 }

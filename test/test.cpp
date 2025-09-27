@@ -43,3 +43,4 @@ void runParser(std::string path)
 
 
 TEST(Parser, TYPE1){EXPECT_NO_THROW(runParser("type1.txt"));}
+// TEST(Semantic, TYPE1){EXPECT_ANY_THROW(runSemantic("type1.txt"));}

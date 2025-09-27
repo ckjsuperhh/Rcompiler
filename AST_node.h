@@ -85,7 +85,11 @@ enum class TypeName {
     IdentifierType,
     selfType,
     SelfType,
+    AsExpr,
+    AssignmentExpr,
 };
+
+
 
 using Element = std::variant<ASTNode*, std::string, int>;
 
@@ -263,6 +267,21 @@ struct LiteralExpr : Expr {
     [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
+struct application {
+    std::shared_ptr<Expr> name;
+    std::shared_ptr<Expr> variable;
+};
+
+struct StructExpr : Expr {
+    std::shared_ptr<Expr> structname;
+    std::vector<application> apps;
+    StructExpr(std::shared_ptr<Expr> s,std::vector<application>a,std::shared_ptr<Type> t=nullptr):
+    Expr(TypeName::StructExpr,std::move(t)),structname(s),apps(std::move(a)) {}
+
+
+    [[nodiscard]] std::vector<Element> get_children() const override;
+};
+
 struct ArrayInitExpr : Expr {
     std::vector<std::shared_ptr<Expr> > elements;
     explicit ArrayInitExpr(std::vector<std::shared_ptr<Expr> > es, std::shared_ptr<Type> t = nullptr):
@@ -300,6 +319,18 @@ struct UnitExpr : Expr {
     UnitExpr():Expr(TypeName::UnitExpr){}
     
     
+    [[nodiscard]] std::vector<Element> get_children() const override;
+};
+
+struct AsExpr : Expr {
+    std::shared_ptr<Expr> expr;
+    std::shared_ptr<Type> type;
+    AsExpr(std::shared_ptr<Expr> e, std::shared_ptr<Type> t,std::shared_ptr<Type> ty=nullptr):
+    Expr(TypeName::AsExpr,std::move(ty)),expr(std::move(e)), type(std::move(t)) {
+    }
+
+
+
     [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
@@ -402,8 +433,9 @@ struct GroupedExpr : Expr {
 struct AssignmentExpr : Expr {
     std::shared_ptr<Expr> left;
     std::shared_ptr<Expr> right;
-    AssignmentExpr(std::shared_ptr<Expr> l,std::shared_ptr<Expr> r):
-    Expr(TypeName::AssignmentStmt), left(std::move(l)), right(std::move(r)) {}
+    std::string op;
+    AssignmentExpr(std::shared_ptr<Expr> l,std::string o,std::shared_ptr<Expr> r):
+    Expr(TypeName::AssignmentStmt), left(std::move(l)),op(std::move(o)), right(std::move(r)) {}
     
     
     [[nodiscard]] std::vector<Element> get_children() const override;

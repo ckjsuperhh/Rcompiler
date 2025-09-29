@@ -12,4 +12,5 @@ add_executable(Compiler main.cpp
         semantic_check.h
         parser.h
         AST_node.cpp
-        )
+        semantic_check.cpp
+)

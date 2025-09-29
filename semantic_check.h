@@ -12,6 +12,7 @@
 #include "AST_node.h"
 
 
+struct LoopExpr;
 struct ASTNode;
 struct Expr;
 struct Type;
@@ -59,62 +60,46 @@ struct Error;
 struct Program;
 struct ConstStmt;
 struct AssignmentStmt;
+struct IdentifierType;
 
 struct SymbolEntry {
-
+    bool is_Global;
 };
 
 class SymbolTable {
     std::vector<std::unordered_map<std::string,SymbolEntry>> scopes;
 
-
-
-
 };
-
 class SemanticCheck {
-    SymbolTable symbol_table;
 public:
-    static void error(const std::string& msg) {
-        throw std::runtime_error(msg);
-    }
-    // void analyze(const std::shared_ptr<ASTNode> &root) {
-    //     root->accept1(this);
-    //     root->accept2(this);
-    //     root->accept3(this);
-    //     root->accept4(this);
-    //     root->accept5(this);
-    // }
-    void phase1(const BasicType *node) {
-
-    }
-    void phase2(const BasicType *node) {
-
-    }
-    void phase3(const BasicType *node) {
-
-    }
-    void phase4(const BasicType *node) {
-
-    }
-    void phase5(const BasicType *node) {
-
-    }
-    void phase1(const ArrayType*node) {
-
-    }
-    void phase2(const ArrayType *node) {
-
-    }
-    void phase3(const ArrayType *node) {
-
-    }
-    void phase4(const ArrayType *node) {
-
-    }
-    void phase5(const ArrayType *node) {
-
-    }
+    void pre_processor(ASTNode *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(Program *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(BasicType *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(ArrayType *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(LiteralExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(LoopExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(BlockExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(ArrayInitExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(ArrayAccessExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(BinaryExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(UnaryExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(PathExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(GroupedExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(FieldAccessExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(CallExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(StructExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(IfExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(FnStmt *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(ContinueExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(BreakExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(RangeExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(ReturnExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(LetStmt *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(ConstStmt *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(AssignmentStmt *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(ArraySimplifiedExpr*node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(IdentifierType*node,ASTNode*F,ASTNode* l,ASTNode* f);
+    
 };
 
 

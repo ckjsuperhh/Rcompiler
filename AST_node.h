@@ -285,26 +285,7 @@ struct LiteralExpr : Expr {
     explicit LiteralExpr(std::string v, std::shared_ptr<Type> t) : Expr(TypeName::LiteralExpr, std::move(t)), value(std::move(v)) {
     }
     
-    void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override {
-        return visitor.visit(this,F,l,f);
-    }
-    [[nodiscard]] std::vector<Element> get_children() const override;
-};
-
-struct application {
-    std::shared_ptr<Expr> name;
-    std::shared_ptr<Expr> variable;
-};
-
-struct StructExpr : Expr {
-    std::shared_ptr<Expr> structname;
-    std::vector<application> apps;
-    StructExpr(std::shared_ptr<Expr> s,std::vector<application>a,std::shared_ptr<Type> t=nullptr):
-    Expr(TypeName::StructExpr,std::move(t)),structname(s),apps(std::move(a)) {}
-    void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override {
-        return visitor.visit(this,F,l,f);
-    }
-
+    
     [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
@@ -353,20 +334,6 @@ struct UnitExpr : Expr {
         return visitor.visit(this,F,l,f);
     }
     
-    [[nodiscard]] std::vector<Element> get_children() const override;
-};
-
-struct AsExpr : Expr {
-    std::shared_ptr<Expr> expr;
-    std::shared_ptr<Type> type;
-    AsExpr(std::shared_ptr<Expr> e, std::shared_ptr<Type> t,std::shared_ptr<Type> ty=nullptr):
-    Expr(TypeName::AsExpr,std::move(ty)),expr(std::move(e)), type(std::move(t)) {
-    }
-    void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override {
-        return visitor.visit(this,F,l,f);
-    }
-
-
     [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
@@ -487,12 +454,9 @@ struct GroupedExpr : Expr {
 struct AssignmentExpr : Expr {
     std::shared_ptr<Expr> left;
     std::shared_ptr<Expr> right;
-    std::string op;
-    AssignmentExpr(std::shared_ptr<Expr> l,std::string o,std::shared_ptr<Expr> r):
-    Expr(TypeName::AssignmentStmt), left(std::move(l)),op(std::move(o)), right(std::move(r)) {}
-    void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override {
-        return visitor.visit(this,F,l,f);
-    }
+    AssignmentExpr(std::shared_ptr<Expr> l,std::shared_ptr<Expr> r):
+    Expr(TypeName::AssignmentStmt), left(std::move(l)), right(std::move(r)) {}
+    
     
     [[nodiscard]] std::vector<Element> get_children() const override;
 };

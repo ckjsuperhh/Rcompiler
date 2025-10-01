@@ -2,6 +2,7 @@
   <dictionary name="project">
     <words>
       <w>cchar</w>
+      <w>iint</w>
       <w>isize</w>
       <w>structname</w>
     </words>

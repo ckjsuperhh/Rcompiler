@@ -63,19 +63,34 @@ struct AssignmentStmt;
 struct IdentifierType;
 
 struct SymbolEntry {
+    std::shared_ptr<Type> type;
+    std::any eval;
+    bool is_mutable;
     bool is_Global;
 };
 
-class SymbolTable {
-    std::vector<std::unordered_map<std::string,SymbolEntry>> scopes;
-
+struct SymbolTable {
+    std::vector<std::unordered_map<std::string,SymbolEntry>> item_Table,type_Table;
+    SymbolEntry lookup_t(std::string);
+    SymbolEntry lookup_i(std::string);
+    void setItem(std::string, SymbolEntry);
+    void setType(std::string, SymbolEntry);
 };
 class SemanticCheck {
 public:
+    void resolveDependency(ASTNode* node);
     void pre_processor(ASTNode *node,ASTNode* F,ASTNode* l,ASTNode* f);
+
+    static std::shared_ptr<Type> TypeToItem(std::shared_ptr<Type> t);
+
+    static std::shared_ptr<Type> ItemToType(std::shared_ptr<Type> t);
+
+    void is_NumDerivable(std::shared_ptr<Type> &T1, std::shared_ptr<Type> &T0);
+
+    void is_AllDerivable(std::shared_ptr<Type> &T1, std::shared_ptr<Type> &T0);
+
     void visit(Program *node,ASTNode* F,ASTNode* l,ASTNode* f);
-    void visit(BasicType *node,ASTNode* F,ASTNode* l,ASTNode* f);
-    void visit(ArrayType *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(RustType *node,ASTNode *F,ASTNode *l,ASTNode* f);
     void visit(LiteralExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
     void visit(LoopExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
     void visit(BlockExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
@@ -89,17 +104,20 @@ public:
     void visit(CallExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
     void visit(StructExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
     void visit(IfExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(WhileExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
     void visit(FnStmt *node,ASTNode* F,ASTNode* l,ASTNode* f);
     void visit(ContinueExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
     void visit(BreakExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
-    void visit(RangeExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
     void visit(ReturnExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
-    void visit(LetStmt *node,ASTNode* F,ASTNode* l,ASTNode* f);
+    static void visit(LetStmt *node,ASTNode* F,ASTNode* l,ASTNode* f);
     void visit(ConstStmt *node,ASTNode* F,ASTNode* l,ASTNode* f);
-    void visit(AssignmentStmt *node,ASTNode* F,ASTNode* l,ASTNode* f);
     void visit(ArraySimplifiedExpr*node,ASTNode* F,ASTNode* l,ASTNode* f);
-    void visit(IdentifierType*node,ASTNode*F,ASTNode* l,ASTNode* f);
-    
+
+    void is_AsTrans(std::shared_ptr<Type> T1, std::shared_ptr<Type> T2);
+
+    void visit(StructStmt*node,ASTNode* F,ASTNode* l,ASTNode* f);
+    void visit(AssignmentExpr *node, ASTNode *F, ASTNode *l, ASTNode *f);
+    void visit(AsExpr *node, ASTNode *F, ASTNode *l, ASTNode *f);
 };
 
 

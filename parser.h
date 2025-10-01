@@ -260,7 +260,7 @@ static std::string get_type_str(TokenType type) {
 
     std::shared_ptr<Expr> parse_as(std::shared_ptr<Expr> left) {
         consume();
-        auto type=parse_type();
+        auto type=parse_Rust_type();
         return std::make_shared<AsExpr>(left, type);
     }
 
@@ -599,12 +599,12 @@ static std::string get_type_str(TokenType type) {
             if(expr->node_type!=TypeName::StructExpr) {
                 throw std::runtime_error("Not a struct expression but omit the type declaration!");
             }
-            auto type_annotation=std::make_shared<IdentifierType>(
+            auto type_annotation=std::make_shared<RustType>(std::make_shared<IdentifierType>(
                 dynamic_cast<PathExpr*>(dynamic_cast<StructExpr*>(
-                    expr.get())->structname.get())->segments[0]);
+                    expr.get())->structname.get())->segments[0]));
             return std::make_shared<LetStmt>(name,std::move(type_annotation),std::move(expr),is_mutable);
         }
-        auto type_annotation = parse_type();
+        auto type_annotation = parse_Rust_type();
         std::shared_ptr<Expr> expr=nullptr;
         if (match(TokenType::Equal)) {
             expr=parse_expression();
@@ -678,7 +678,7 @@ static std::string get_type_str(TokenType type) {
             type->is_mutable=true;
         }
         if (match(TokenType::self)) {
-            type->node_type=TypeName::selfType;
+            type->typeKind=TypeName::selfType;
         }else {
             throw std::runtime_error("invalid things before self type");
         }
@@ -884,23 +884,23 @@ std::shared_ptr<TraitStmt> parse_trait() {
         }
         if (type_name=="i32") {
             consume();
-            return std::make_shared<BasicType>(TypeName::i32);
+            return std::make_shared<BasicType>(TypeName::I32);
         }
         if (type_name=="u32") {
             consume();
-            return std::make_shared<BasicType>(TypeName::u32);
+            return std::make_shared<BasicType>(TypeName::U32);
         }
         if (type_name=="isize") {
             consume();
-            return std::make_shared<BasicType>(TypeName::isize);
+            return std::make_shared<BasicType>(TypeName::Isize);
         }
         if (type_name=="usize") {
             consume();
-            return std::make_shared<BasicType>(TypeName::usize);
+            return std::make_shared<BasicType>(TypeName::Usize);
         }
         if (type_name=="()") {
             consume();
-            return std::make_shared<BasicType>(TypeName::unit);
+            return std::make_shared<BasicType>(TypeName::Unit);
         }
         consume();
         return std::make_shared<ErrorType>();
@@ -960,6 +960,34 @@ std::shared_ptr<TraitStmt> parse_trait() {
         type->is_and=is_and;
         type->is_mutable=is_mutable;
         return type;
+    }
+
+    std::shared_ptr<RustType> parse_Rust_type() {
+        bool is_and=false;
+        bool is_mutable=false;
+        if (match(TokenType::And)) {
+            is_and=true;
+        }
+        if (match(TokenType::Mut)) {
+            is_mutable=true;
+        }
+        std::shared_ptr<Type> type;
+        switch (peek().type) {
+            case TokenType::LBracket:
+                type= parse_array_type();
+                break;
+            case TokenType::Identifier:
+                type= parse_identifier_type();
+                break;
+            case TokenType::Self:
+                type= parse_Self_type();
+                break;
+            default:
+                type= parse_basic_type();
+        }
+        type->is_and=is_and;
+        type->is_mutable=is_mutable;
+        return std::make_shared<RustType>(type);
     }
 
 std::shared_ptr<ASTNode> parse() {

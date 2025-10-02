@@ -2,10 +2,16 @@
   <dictionary name="project">
     <words>
       <w>cchar</w>
+      <w>constnode</w>
+      <w>enumnode</w>
+      <w>fnnode</w>
+      <w>grandgrandson</w>
       <w>iint</w>
+      <w>implnode</w>
       <w>isize</w>
       <w>strtok</w>
       <w>structname</w>
+      <w>structnode</w>
     </words>
   </dictionary>
 </component>

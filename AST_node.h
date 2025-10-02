@@ -15,6 +15,7 @@
 
 #include "semantic_check.h"
 #include "semantic_check.h"
+#include "semantic_check.h"
 struct ASTNode;
 struct Expr;
 struct Stmt;
@@ -100,6 +101,7 @@ enum class TypeName {
     Versatile,
     VersatileType,
     Int,
+    EnumType,
 };
 
 struct Type;
@@ -224,9 +226,10 @@ struct Param {
 
 struct FunctionType : Type {
     std::vector<Param> parameters;
+    std::shared_ptr<SelfType> selfType;
     std::shared_ptr<Type> return_type;
-    explicit FunctionType(std::vector<Param> p, std::shared_ptr<Type> r):
-        Type(TypeName::FunctionType), parameters(std::move(p)), return_type(std::move(r)) {
+    explicit FunctionType(std::vector<Param> p, std::shared_ptr<Type> r,std::shared_ptr<SelfType> s=nullptr):
+        Type(TypeName::FunctionType), parameters(std::move(p)), return_type(std::move(r)),selfType(std::move(s)) {
     }
 
     bool equals(const Type *other) const override {
@@ -546,9 +549,9 @@ struct Stmt : ASTNode {
 
 struct ConstStmt : Stmt {
     std::string identifier;
-    std::shared_ptr<Type> type;
+    std::shared_ptr<RustType> type;
     std::shared_ptr<Expr> expr;
-    ConstStmt(std::string id, std::shared_ptr<Type> t, std::shared_ptr<Expr> e):
+    ConstStmt(std::string id, std::shared_ptr<RustType> t, std::shared_ptr<Expr> e):
         Stmt(TypeName::ConstStmt), identifier(std::move(id)), type(std::move(t)), expr(std::move(e)) {
     }
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override {
@@ -561,12 +564,12 @@ struct ConstStmt : Stmt {
 struct FnStmt : Stmt {
     std::string name;
     std::vector<Param> parameters;
-    std::shared_ptr<Type> return_type;
+    std::shared_ptr<RustType> return_type;
     std::shared_ptr<Expr> body;
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override {
         return visitor.visit(this,F,l,f);
     }
-    FnStmt(std::string n, std::vector<Param> p, std::shared_ptr<Type> r, std::shared_ptr<Expr> b):
+    FnStmt(std::string n, std::vector<Param> p, std::shared_ptr<RustType> r, std::shared_ptr<Expr> b):
         Stmt(TypeName::FnStmt), name(std::move(n)), parameters(std::move(p)),
         return_type(std::move(r)), body(std::move(b)) {
     }
@@ -574,6 +577,23 @@ struct FnStmt : Stmt {
     
     
     [[nodiscard]] std::vector<Element> get_children() const override;
+};
+struct EnumType : Type {
+    int structID;
+    std::string structName;
+    std::unordered_map<std::string, unsigned int>* MemberNames;
+    EnumType(int structID,
+    std::string structName,
+    std::unordered_map<std::string, unsigned int>* MemberNames):Type(TypeName::EnumType),structID(structID),structName(std::move(structName)),MemberNames(MemberNames){}
+};
+
+struct StructType:Type {
+    int structID;
+    std::string structName;
+    SymbolTable* field;
+    int FieldNum;
+    StructType(int id, std::string name, SymbolTable* s,int f):
+    Type(TypeName::StructType),structID(id),structName(std::move(name)),field(s),FieldNum(f) {}
 };
 
 struct StructStmt:Stmt {
@@ -635,7 +655,9 @@ struct TraitImplStmt:Stmt {
     std::vector<std::pair<std::shared_ptr<ConstStmt>,bool>> cons;
     TraitImplStmt(std::string t,std::string s,std::vector<std::pair<std::shared_ptr<FnStmt>,bool> >f,std::vector<std::pair<std::shared_ptr<ConstStmt>,bool>> c)
         : Stmt(TypeName::TraitImplStmt),trait_name(std::move(t)), struct_name(std::move(s)), fns(std::move(f)),cons(std::move(c)) {}
-
+    void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override {
+        return visitor.visit(this,F,l,f);
+    }
 
     [[nodiscard]] std::vector<Element> get_children() const override;
 };
@@ -656,18 +678,21 @@ struct LetStmt:Stmt {
 };
 
 struct Program : ASTNode {
-    std::vector<std::shared_ptr<ConstStmt>> cons;
-    std::vector<std::shared_ptr<FnStmt>> fns;
-    std::vector<std::shared_ptr<EnumStmt>> enums;
-    std::vector<std::shared_ptr<StructStmt>> structs;
-    std::vector<std::shared_ptr<InherentImplStmt>> inherits;
-    std::vector<std::shared_ptr<TraitStmt>> traits;
-    std::vector<std::shared_ptr<TraitImplStmt>> impls;
+    std::vector<std::shared_ptr<ASTNode>> statements;
+    // std::vector<std::shared_ptr<ConstStmt>> cons;
+    // std::vector<std::shared_ptr<FnStmt>> fns;
+    // std::vector<std::shared_ptr<EnumStmt>> enums;
+    // std::vector<std::shared_ptr<StructStmt>> structs;
+    // std::vector<std::shared_ptr<InherentImplStmt>> inherits;
+    // std::vector<std::shared_ptr<TraitStmt>> traits;
+    // std::vector<std::shared_ptr<TraitImplStmt>> impls;
     //其余的全局变量\enum\trait\impl等等我都先不管
-    explicit Program(std::vector<std::shared_ptr<ConstStmt>> c,std::vector<std::shared_ptr<FnStmt>> f,std::vector<std::shared_ptr<EnumStmt>> e,
-        std::vector<std::shared_ptr<StructStmt>> s,std::vector<std::shared_ptr<InherentImplStmt>> in,
-        std::vector<std::shared_ptr<TraitStmt>> t,std::vector<std::shared_ptr<TraitImplStmt>> im):
-    ASTNode(TypeName::Program),cons(std::move(c)),fns(std::move(f)),enums(std::move(e)),structs(std::move(s)),inherits(std::move(in)),traits(std::move(t)),impls(std::move(im)){}
+    // explicit Program(std::vector<std::shared_ptr<ConstStmt>> c,std::vector<std::shared_ptr<FnStmt>> f,std::vector<std::shared_ptr<EnumStmt>> e,
+    //     std::vector<std::shared_ptr<StructStmt>> s,std::vector<std::shared_ptr<InherentImplStmt>> in,
+    //     std::vector<std::shared_ptr<TraitStmt>> t,std::vector<std::shared_ptr<TraitImplStmt>> im):
+    // ASTNode(TypeName::Program),cons(std::move(c)),fns(std::move(f)),enums(std::move(e)),structs(std::move(s)),inherits(std::move(in)),traits(std::move(t)),impls(std::move(im)){}
+    explicit Program(std::vector<std::shared_ptr<ASTNode>> s):
+    ASTNode(TypeName::Program), statements(std::move(s)) {}
     ~Program() override = default;
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override {
         return visitor.visit(this,F,l,f);

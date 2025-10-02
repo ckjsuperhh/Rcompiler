@@ -833,7 +833,7 @@ std::shared_ptr<TraitStmt> parse_trait() {
         consume();
         expect(TokenType::Colon);
         consume();
-        auto type_annotation = parse_type();
+        auto type_annotation = parse_Rust_type();
         std::shared_ptr<Expr> expr=nullptr;
         if (match(TokenType::Equal)) {
             expr=parse_expression();
@@ -991,61 +991,33 @@ std::shared_ptr<TraitStmt> parse_trait() {
     }
 
 std::shared_ptr<ASTNode> parse() {
-    std::vector<std::shared_ptr<ConstStmt>> cons;
-    std::vector<std::shared_ptr<FnStmt>> fns;
-    std::vector<std::shared_ptr<EnumStmt>> enums;
-    std::vector<std::shared_ptr<StructStmt>> structs;
-    std::vector<std::shared_ptr<InherentImplStmt>> inherits;
-    std::vector<std::shared_ptr<TraitStmt>> traits;
-    std::vector<std::shared_ptr<TraitImplStmt>> impls;
+        std::vector<std::shared_ptr<ASTNode>> children;
+    // std::vector<std::shared_ptr<ConstStmt>> cons;
+    // std::vector<std::shared_ptr<FnStmt>> fns;
+    // std::vector<std::shared_ptr<EnumStmt>> enums;
+    // std::vector<std::shared_ptr<StructStmt>> structs;
+    // std::vector<std::shared_ptr<InherentImplStmt>> inherits;
+    // std::vector<std::shared_ptr<TraitStmt>> traits;
+    // std::vector<std::shared_ptr<TraitImplStmt>> impls;
 
     while (!is_at_end()) {
         auto stmt = parse_statement();  // stmt 是 shared_ptr<ASTNode>
-
-        // 使用 dynamic_pointer_cast 转换智能指针（关键修正）
         switch (stmt->get_type()) {
-            // std::cerr<<stmt->get_type()
-            case TypeName::ConstStmt: {
-                auto const_stmt = std::dynamic_pointer_cast<ConstStmt>(stmt);
-                if (const_stmt) cons.emplace_back(const_stmt);
+            case TypeName::ConstStmt:
+            case TypeName::FnStmt:
+            case TypeName::EnumStmt:
+            case TypeName::StructStmt:
+            case TypeName::InherentImplStmt:
+            case TypeName::TraitStmt:
+            case TypeName::TraitImplStmt:
+                children.push_back(stmt);
                 break;
-            }
-            case TypeName::FnStmt: {
-                auto fn_stmt = std::dynamic_pointer_cast<FnStmt>(stmt);
-                if (fn_stmt) fns.emplace_back(fn_stmt);
-                break;
-            }
-            case TypeName::EnumStmt: {
-                auto enum_stmt = std::dynamic_pointer_cast<EnumStmt>(stmt);
-                if (enum_stmt) enums.emplace_back(enum_stmt);
-                break;
-            }
-            case TypeName::StructStmt: {
-                auto struct_stmt = std::dynamic_pointer_cast<StructStmt>(stmt);
-                if (struct_stmt) structs.emplace_back(struct_stmt);
-                break;
-            }
-            case TypeName::InherentImplStmt: {
-                auto inherent_stmt = std::dynamic_pointer_cast<InherentImplStmt>(stmt);
-                if (inherent_stmt) inherits.emplace_back(inherent_stmt);
-                break;
-            }
-            case TypeName::TraitStmt: {
-                auto trait_stmt = std::dynamic_pointer_cast<TraitStmt>(stmt);
-                if (trait_stmt) traits.emplace_back(trait_stmt);
-                break;
-            }
-            case TypeName::TraitImplStmt: {
-                auto impl_stmt = std::dynamic_pointer_cast<TraitImplStmt>(stmt);
-                if (impl_stmt) impls.emplace_back(impl_stmt);
-                break;
-            }
             default:
                 throw std::runtime_error("Unexpected statement type");
         }
     }
 
-    return std::make_shared<Program>(cons, fns, enums, structs, inherits, traits, impls);
+    return std::make_shared<Program>(children);
 }
 };
 #endif //PARSER_H

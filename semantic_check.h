@@ -66,6 +66,7 @@ struct RustType;
 struct StructStmt;
 struct AssignmentExpr;
 struct AsExpr;
+inline unsigned int structNum = 0;
 
 struct SymbolEntry {
     std::shared_ptr<Type> type;
@@ -74,21 +75,26 @@ struct SymbolEntry {
     bool is_Global;
 };
 struct SymbolTable {
-        std::vector<std::unordered_map<std::string,SymbolEntry>> item_Table,type_Table;
+        std::unordered_map<std::string,SymbolEntry>item_Table,type_Table;
         SymbolEntry lookup_t(std::string);
         SymbolEntry lookup_i(std::string);
+
         void setItem(std::string, SymbolEntry);
+
         void setType(std::string, SymbolEntry);
     };
 class SemanticCheck {
 
 public:
-    void resolveDependency(ASTNode* node);
+    void resolveDependency(ASTNode *node, std::shared_ptr<Type> SelfType);
+
     void pre_processor(ASTNode *node,ASTNode* F,ASTNode* l,ASTNode* f);
 
     static std::shared_ptr<Type> TypeToItem(std::shared_ptr<Type> t);
 
     static std::shared_ptr<Type> ItemToType(std::shared_ptr<Type> t);
+
+    static void is_StrongDerivable(const std::shared_ptr<Type> &T1, const std::shared_ptr<Type> &T0, bool canRemoveMut);
 
     void is_NumDerivable(std::shared_ptr<Type> &T1, std::shared_ptr<Type> &T0);
 

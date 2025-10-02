@@ -61,6 +61,11 @@ struct Program;
 struct ConstStmt;
 struct AssignmentStmt;
 struct IdentifierType;
+struct WhileExpr;
+struct RustType;
+struct StructStmt;
+struct AssignmentExpr;
+struct AsExpr;
 
 struct SymbolEntry {
     std::shared_ptr<Type> type;
@@ -68,15 +73,15 @@ struct SymbolEntry {
     bool is_mutable;
     bool is_Global;
 };
-
 struct SymbolTable {
-    std::vector<std::unordered_map<std::string,SymbolEntry>> item_Table,type_Table;
-    SymbolEntry lookup_t(std::string);
-    SymbolEntry lookup_i(std::string);
-    void setItem(std::string, SymbolEntry);
-    void setType(std::string, SymbolEntry);
-};
+        std::vector<std::unordered_map<std::string,SymbolEntry>> item_Table,type_Table;
+        SymbolEntry lookup_t(std::string);
+        SymbolEntry lookup_i(std::string);
+        void setItem(std::string, SymbolEntry);
+        void setType(std::string, SymbolEntry);
+    };
 class SemanticCheck {
+
 public:
     void resolveDependency(ASTNode* node);
     void pre_processor(ASTNode *node,ASTNode* F,ASTNode* l,ASTNode* f);

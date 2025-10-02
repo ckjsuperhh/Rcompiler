@@ -4,6 +4,7 @@
       <w>cchar</w>
       <w>iint</w>
       <w>isize</w>
+      <w>strtok</w>
       <w>structname</w>
     </words>
   </dictionary>

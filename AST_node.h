@@ -99,6 +99,7 @@ enum class TypeName {
     NeverType,
     Versatile,
     VersatileType,
+    Int,
 };
 
 struct Type;

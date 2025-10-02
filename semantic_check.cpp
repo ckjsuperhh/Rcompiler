@@ -9,6 +9,7 @@
 
 void resolveDependency(ASTNode*node) {
 
+
 }
 void SemanticCheck::pre_processor(ASTNode *node, ASTNode *F, ASTNode *l, ASTNode *f) {
     auto v=node->get_children();
@@ -89,7 +90,7 @@ void is_StrongDerivable(const std::shared_ptr<Type>& T1,const std::shared_ptr<Ty
     if (T1->typeKind==TypeName::BasicType&&T0->typeKind==TypeName::BasicType) {
         auto Basic_T1=std::dynamic_pointer_cast<BasicType>(T1);
         auto Basic_T0=std::dynamic_pointer_cast<BasicType>(T0);
-        if (Basic_T1->kind==TypeName::Integer&&(Basic_T0->kind==TypeName::Iint||Basic_T0->kind==TypeName::Uint||
+        if (Basic_T1->kind==TypeName::Int&&(Basic_T0->kind==TypeName::Iint||Basic_T0->kind==TypeName::Uint||
             Basic_T0->kind==TypeName::Uint||Basic_T0->kind==TypeName::I32||Basic_T0->kind==TypeName::U32||
             Basic_T0->kind==TypeName::Isize||Basic_T0->kind==TypeName::Usize)) {
             return;
@@ -118,7 +119,7 @@ bool is_Number(const std::shared_ptr<Type>& T) {
         return false;
     }
     auto T1=std::dynamic_pointer_cast<BasicType>(T);
-    return T1->kind==TypeName::Integer || T1->kind==TypeName::Uint||T1->kind==TypeName::Usize||T1->kind== TypeName::Iint
+    return T1->kind==TypeName::Int || T1->kind==TypeName::Uint||T1->kind==TypeName::Usize||T1->kind== TypeName::Iint
     ||T1->kind==TypeName::U32||T1->kind==TypeName::I32||T1->kind==TypeName::Isize;
 }
 
@@ -242,7 +243,7 @@ void SemanticCheck::visit(BreakExpr*node,ASTNode* F,ASTNode* l,ASTNode* f) {
             throw std::runtime_error("SemanticCheck::visit: break cannot occur in the condition of while");
         }
         if (node->expr!=nullptr) {
-            throw std::runtime_error("SemanticCheck::visit: break cannot have a value in while expression");9
+            throw std::runtime_error("SemanticCheck::visit: break cannot have a value in while expression");
         }
     }else {
         std::shared_ptr<Type> T0;
@@ -432,11 +433,98 @@ void SemanticCheck::visit(BinaryExpr*node,ASTNode* F,ASTNode* l,ASTNode* f) {
 }
 
 void SemanticCheck::visit(UnaryExpr*node,ASTNode* F,ASTNode* l,ASTNode* f) {
-
+    auto &T_son=node->right->realType;
+    auto E_son=node->right->eval;
+    if (node->op=="-") {
+        auto Basic_T0 = std::make_shared<BasicType>(TypeName::Iint);
+        std::shared_ptr<Type> T0=Basic_T0;
+        is_NumDerivable(T_son,T0);
+        if (E_son.has_value()) {
+            node->eval=-std::any_cast<long long>(E_son);
+        }
+    }else if (node->op=="!") {
+        if (!is_NumberBool(T_son)) {
+            throw std::runtime_error("Error in SemanticCheck::visit unary expression: Not a number");
+        }
+        node->realType=T_son;
+        if (E_son.has_value()) {
+            if (E_son.type()==typeid(long long)) {
+                node->eval=~std::any_cast<long long>(E_son);
+            }else if (E_son.type()==typeid(bool)) {
+                node->eval=~std::any_cast<bool>(E_son);
+            }
+        }
+    }//TODO
 }
 
 void SemanticCheck::visit(LiteralExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
-
+    auto T=std::static_pointer_cast<BasicType>(node->exprType);
+    if (T->kind==TypeName::Bool) {
+        node->realType=std::make_shared<BasicType>(TypeName::Bool);
+        node->eval=node->value=="true";
+    }else if (T->kind==TypeName::Char) {
+        node->realType=std::make_shared<BasicType>(TypeName::Char);
+        if (node->value[0]=='\\') {
+            if (node->value[1]=='n') {
+                node->eval='\n';
+            }else if (node->value[1]=='t') {
+                node->eval='\t';
+            }else if (node->value[1]=='r') {
+                node->eval='\r';
+            }else if (node->value[1]=='\\') {
+                node->eval='\\';
+            }else if (node->value[1]=='\'') {
+                node->eval='\'';
+            }else if (node->value[1]=='"') {
+                node->eval='"';
+            }else if (node->value[1]=='0') {
+                node->eval='\0';
+            }else {
+                throw std::runtime_error("Invalid type in char node");
+            }
+        }else {
+            node->eval=node->value[0];
+        }
+    }else if (T->kind==TypeName::Integer) {
+        std::string inform;
+        for (auto ch:node->value) {
+            if (ch!='_') {
+                inform.push_back(ch);
+            }
+        }
+        if (inform.size()>3&&inform.substr(inform.size()-3,3)=="i32") {
+            node->realType=std::make_shared<BasicType>(TypeName::I32);
+            node->eval = static_cast<long long>(std::stoi(inform.substr(0, inform.size()-3), nullptr, 0));
+        }else if (inform.size()>3&&inform.substr(inform.size()-3,3)=="u32") {
+            node->realType=std::make_shared<BasicType>(TypeName::U32);
+            node->eval = static_cast<long long>(std::stoi(inform.substr(0, inform.size()-3), nullptr, 0));
+        }else if (inform.size()>3&&inform.substr(inform.size()-5,5)=="isize") {
+            node->realType=std::make_shared<BasicType>(TypeName::Isize);
+            node->eval = static_cast<long long>(std::stoi(inform.substr(0, inform.size()-5), nullptr, 0));
+        }else if (inform.size()>3&&inform.substr(inform.size()-5,5)=="usize") {
+            node->realType=std::make_shared<BasicType>(TypeName::Usize);
+            node->eval = static_cast<long long>(std::stoi(inform.substr(0, inform.size()-5), nullptr, 0));
+        }else {//不存在后缀的integer，那么就需要推导类型了
+            auto res = std::stoll(inform);
+            node->eval=res;
+            if (F->node_type==TypeName::UnaryExpr) {
+                auto Unary_father=dynamic_cast<UnaryExpr*>(F);
+                if (Unary_father->op=="-") {
+                    res=-res;
+                }
+            }
+            if (res>UINT_MAX || res<INT_MIN) {
+                throw std::runtime_error("Invalid number in literal node");
+            }
+            if (res>=0&&res<=INT_MAX) {
+                node->realType=std::make_shared<BasicType>(TypeName::Int);
+            }else if (res>=0&&res>=INT_MAX) {
+                node->realType=std::make_shared<BasicType>(TypeName::Iint);
+            }else {
+                node->realType=std::make_shared<BasicType>(TypeName::Uint);
+            }
+        }
+    }
 }
 
 void SemanticCheck::visit(StructExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
@@ -470,15 +558,58 @@ void SemanticCheck::visit(ConstStmt *node, ASTNode *F, ASTNode *l, ASTNode *f) {
 }
 
 void SemanticCheck::visit(ArrayInitExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
-
+    if (node->elements.empty()) {
+        throw std::runtime_error("SemanticCheck::visit: empty array initialization");
+    }
+    auto& T=node->elements[0]->realType;
+    std::vector<std::any> array_children;
+    bool strtok=true;
+    for (const auto& child:node->elements) {
+        if (T->typeKind==TypeName::NeverType) {
+            T=child->realType;
+        }else if (child->realType->typeKind==TypeName::NeverType) {
+            child->realType=T;
+        }else {
+            is_AllDerivable(T,child->realType);
+        }
+        if (!child->eval.has_value()) {
+            strtok=false;
+        }
+        if (strtok) {
+            array_children.push_back(child->eval);
+        }
+    }
+    node->realType=std::make_shared<ArrayType>(T,std::make_shared<LiteralExpr>(std::to_string(static_cast<unsigned int>(array_children.size())),std::make_shared<BasicType>(TypeName::Usize)));
+    if (strtok) {
+        node->eval=array_children;
+    }
 }
 
 void SemanticCheck::visit(GroupedExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
-
+    node->realType=node->expr->realType;
+    node->eval=node->expr->eval;
 }
 
 void SemanticCheck::visit(ArraySimplifiedExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
-
+    auto T=node->length->realType;
+    auto E=node->length->eval;
+    if (T->typeKind!=TypeName::BasicType) {
+        throw std::runtime_error("SemanticCheck::visit:array length is not an integer");
+    }
+    auto Basic_T=std::dynamic_pointer_cast<BasicType>(T);
+    if (!E.has_value()||(Basic_T->typeKind!=TypeName::Unit&&Basic_T->typeKind!=TypeName::Usize&&Basic_T->typeKind!=TypeName::Int)) {
+        throw std::runtime_error("SemanticCheck::visit: array length is not a usize type");
+    }
+    auto len=static_cast<unsigned int>(std::any_cast<long long>(E));
+    node->realType=std::make_shared<ArrayType>(T,std::make_shared<LiteralExpr>(std::to_string(len),std::make_shared<BasicType>(TypeName::Usize)));
+    auto E0=node->element->eval;
+    if (E.has_value()) {
+        std::vector<std::any> array_children;
+        for (auto i=0;i<len;i++) {
+            array_children.push_back(E0);
+        }
+        node->eval=array_children;
+    }
 }
 
 void SemanticCheck::is_AsTrans(std::shared_ptr<Type> T1,std::shared_ptr<Type> T2) {
@@ -513,6 +644,29 @@ void SemanticCheck::visit(AsExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
                 node->eval=std::any_cast<long long>(E2);
             }
         }
+    }
+}
+
+void SemanticCheck::visit(RustType* node, ASTNode *F, ASTNode *l, ASTNode *f) {
+    if (node->realType->typeKind==TypeName::IdentifierType) {
+        auto Id_T=std::dynamic_pointer_cast<IdentifierType>(node->realType);
+        auto T=node->scope.first->lookup_t(Id_T->name).type;
+        if (T->typeKind!=TypeName::Type) {//我这个位置有点没写明白
+            throw std::runtime_error("SemanticCheck::visit: I don't know!!!");
+        }
+        node->realType=T;
+    }else if (node->realType->typeKind==TypeName::ArrayType) {
+        auto Array_T=std::dynamic_pointer_cast<ArrayType>(node->realType);
+        auto T=Array_T->length->realType;
+        auto E=Array_T->length->eval;
+        if (T->typeKind!=TypeName::BasicType) {
+            throw std::runtime_error("SemanticCheck::visit:array length is not an integer");
+        }
+        auto Basic_T=std::dynamic_pointer_cast<BasicType>(T);
+        if (!E.has_value()||(Basic_T->typeKind!=TypeName::Unit&&Basic_T->typeKind!=TypeName::Usize&&Basic_T->typeKind!=TypeName::Int)) {
+            throw std::runtime_error("SemanticCheck::visit: array length is not a usize type");
+        }
+        //RustType中本身已经维护好了realType(parser中),所以我后续就没有什么必要再往后写了
     }
 }
 

@@ -4,12 +4,10 @@
 
 #ifndef SEMANTIC_CHECK_H
 #define SEMANTIC_CHECK_H
-#include <stdexcept>
+#include <any>
+#include <memory>
 #include <string>
 #include <unordered_map>
-#include <vector>
-
-#include "AST_node.h"
 
 
 struct LoopExpr;
@@ -66,6 +64,9 @@ struct RustType;
 struct StructStmt;
 struct AssignmentExpr;
 struct AsExpr;
+struct UnitExpr;
+struct EnumStmt;
+struct InherentImplStmt;
 inline unsigned int structNum = 0;
 
 struct SymbolEntry {
@@ -94,7 +95,7 @@ public:
 
     static std::shared_ptr<Type> ItemToType(std::shared_ptr<Type> t);
 
-    static void is_StrongDerivable(const std::shared_ptr<Type> &T1, const std::shared_ptr<Type> &T0, bool canRemoveMut);
+    static void is_StrongDerivable(const std::shared_ptr<Type> &T1, const std::shared_ptr<Type> &T0, bool canRemoveMut=true);
 
     void is_NumDerivable(std::shared_ptr<Type> &T1, std::shared_ptr<Type> &T0);
 
@@ -113,6 +114,13 @@ public:
     void visit(GroupedExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
     void visit(FieldAccessExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
     void visit(CallExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
+
+    void visit(UnitExpr *node, ASTNode *F, ASTNode *l, ASTNode *f);
+
+    void visit(EnumStmt *node, ASTNode *F, ASTNode *l, ASTNode *f);
+
+    void visit(InherentImplStmt *node, ASTNode *F, ASTNode *l, ASTNode *f);
+
     void visit(StructExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
     void visit(IfExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
     void visit(WhileExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);

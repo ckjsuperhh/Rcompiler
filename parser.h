@@ -654,9 +654,9 @@ static std::string get_type_str(TokenType type) {
             expect(TokenType::RParen);
             consume();
         }
-        std::shared_ptr<Type> func_type=nullptr;
+        std::shared_ptr<RustType> func_type=nullptr;
         if (match(TokenType::Arrow)) {
-            func_type=parse_type();
+            func_type=parse_Rust_type();
         }
         if (peek().type == TokenType::Semicolon) {
             return std::make_shared<FnStmt>(name,params,std::move(func_type),nullptr);
@@ -692,42 +692,42 @@ static std::string get_type_str(TokenType type) {
     auto name = peek().value;
     consume();
 
-    if (match(TokenType::For)) {
-        expect(TokenType::Identifier);
-        auto struct_name = peek().value;
-        consume();
-        expect(TokenType::LBrace);
-        consume();
-
-        std::vector<std::pair<std::shared_ptr<FnStmt>, bool>> fns;
-        std::vector<std::pair<std::shared_ptr<ConstStmt>, bool>> cons;
-
-        if (!match(TokenType::RBrace)) {
-            while (!match(TokenType::RBrace)) {
-                auto stmt = parse_statement();  // stmt是shared_ptr<Stmt>
-
-                if (stmt->node_type == TypeName::FnStmt) {
-                    // 使用dynamic_pointer_cast转换智能指针（关键修正）
-                    auto fn_stmt = std::dynamic_pointer_cast<FnStmt>(stmt);
-                    if (!fn_stmt) {
-                        throw std::runtime_error("Expected FnStmt in impl block");
-                    }
-                    fns.emplace_back(fn_stmt, match(TokenType::Semicolon));
-                } else if (stmt->node_type == TypeName::ConstStmt) {
-                    // 使用dynamic_pointer_cast转换智能指针（关键修正）
-                    auto const_stmt = std::dynamic_pointer_cast<ConstStmt>(stmt);
-                    if (!const_stmt) {
-                        throw std::runtime_error("Expected ConstStmt in impl block");
-                    }
-                    cons.emplace_back(const_stmt, match(TokenType::Semicolon));
-                } else {
-                    throw std::runtime_error("invalid things within impl scope");
-                }
-            }
-        }
-
-        return std::make_shared<TraitImplStmt>(name, struct_name, fns, cons);
-    }
+    // if (match(TokenType::For)) {
+    //     expect(TokenType::Identifier);
+    //     auto struct_name = peek().value;
+    //     consume();
+    //     expect(TokenType::LBrace);
+    //     consume();
+    //
+    //     std::vector<std::pair<std::shared_ptr<FnStmt>, bool>> fns;
+    //     std::vector<std::pair<std::shared_ptr<ConstStmt>, bool>> cons;
+    //
+    //     if (!match(TokenType::RBrace)) {
+    //         while (!match(TokenType::RBrace)) {
+    //             auto stmt = parse_statement();  // stmt是shared_ptr<Stmt>
+    //
+    //             if (stmt->node_type == TypeName::FnStmt) {
+    //                 // 使用dynamic_pointer_cast转换智能指针（关键修正）
+    //                 auto fn_stmt = std::dynamic_pointer_cast<FnStmt>(stmt);
+    //                 if (!fn_stmt) {
+    //                     throw std::runtime_error("Expected FnStmt in impl block");
+    //                 }
+    //                 fns.emplace_back(fn_stmt, match(TokenType::Semicolon));
+    //             } else if (stmt->node_type == TypeName::ConstStmt) {
+    //                 // 使用dynamic_pointer_cast转换智能指针（关键修正）
+    //                 auto const_stmt = std::dynamic_pointer_cast<ConstStmt>(stmt);
+    //                 if (!const_stmt) {
+    //                     throw std::runtime_error("Expected ConstStmt in impl block");
+    //                 }
+    //                 cons.emplace_back(const_stmt, match(TokenType::Semicolon));
+    //             } else {
+    //                 throw std::runtime_error("invalid things within impl scope");
+    //             }
+    //         }
+    //     }
+    //
+    //     return std::make_shared<TraitImplStmt>(name, struct_name, fns, cons);
+    // }
 
     expect(TokenType::LBrace);
     consume();
@@ -762,43 +762,43 @@ static std::string get_type_str(TokenType type) {
     return std::make_shared<InherentImplStmt>(name, fns, cons);
 }
 
-std::shared_ptr<TraitStmt> parse_trait() {
-    consume();
-    expect(TokenType::Identifier);
-    auto name = peek().value;
-    consume();
-    expect(TokenType::LBrace);
-    consume();
-
-    std::vector<std::pair<std::shared_ptr<FnStmt>, bool>> fns;
-    std::vector<std::pair<std::shared_ptr<ConstStmt>, bool>> cons;
-
-    if (!match(TokenType::RBrace)) {
-        while (!match(TokenType::RBrace)) {
-            auto stmt = parse_statement();  // stmt是shared_ptr<Stmt>
-
-            if (stmt->node_type == TypeName::FnStmt) {
-                // 使用dynamic_pointer_cast转换智能指针（关键修正）
-                auto fn_stmt = std::dynamic_pointer_cast<FnStmt>(stmt);
-                if (!fn_stmt) {
-                    throw std::runtime_error("Expected FnStmt in trait block");
-                }
-                fns.emplace_back(fn_stmt, match(TokenType::Semicolon));
-            } else if (stmt->node_type == TypeName::ConstStmt) {
-                // 使用dynamic_pointer_cast转换智能指针（关键修正）
-                auto const_stmt = std::dynamic_pointer_cast<ConstStmt>(stmt);
-                if (!const_stmt) {
-                    throw std::runtime_error("Expected ConstStmt in trait block");
-                }
-                cons.emplace_back(const_stmt, match(TokenType::Semicolon));
-            } else {
-                throw std::runtime_error("invalid things within trait scope");
-            }
-        }
-    }
-
-    return std::make_shared<TraitStmt>(name, fns, cons);
-}
+// std::shared_ptr<TraitStmt> parse_trait() {
+//     consume();
+//     expect(TokenType::Identifier);
+//     auto name = peek().value;
+//     consume();
+//     expect(TokenType::LBrace);
+//     consume();
+//
+//     std::vector<std::pair<std::shared_ptr<FnStmt>, bool>> fns;
+//     std::vector<std::pair<std::shared_ptr<ConstStmt>, bool>> cons;
+//
+//     if (!match(TokenType::RBrace)) {
+//         while (!match(TokenType::RBrace)) {
+//             auto stmt = parse_statement();  // stmt是shared_ptr<Stmt>
+//
+//             if (stmt->node_type == TypeName::FnStmt) {
+//                 // 使用dynamic_pointer_cast转换智能指针（关键修正）
+//                 auto fn_stmt = std::dynamic_pointer_cast<FnStmt>(stmt);
+//                 if (!fn_stmt) {
+//                     throw std::runtime_error("Expected FnStmt in trait block");
+//                 }
+//                 fns.emplace_back(fn_stmt, match(TokenType::Semicolon));
+//             } else if (stmt->node_type == TypeName::ConstStmt) {
+//                 // 使用dynamic_pointer_cast转换智能指针（关键修正）
+//                 auto const_stmt = std::dynamic_pointer_cast<ConstStmt>(stmt);
+//                 if (!const_stmt) {
+//                     throw std::runtime_error("Expected ConstStmt in trait block");
+//                 }
+//                 cons.emplace_back(const_stmt, match(TokenType::Semicolon));
+//             } else {
+//                 throw std::runtime_error("invalid things within trait scope");
+//             }
+//         }
+//     }
+//
+//     return std::make_shared<TraitStmt>(name, fns, cons);
+// }
 
 
     std::shared_ptr<StructStmt> parse_struct_declare() {
@@ -853,8 +853,8 @@ std::shared_ptr<TraitStmt> parse_trait() {
                 return parse_struct_declare();
                 case TokenType::Enum:
                 return parse_enum();
-            case TokenType::Trait:
-                return parse_trait();
+            // case TokenType::Trait:
+            //     return parse_trait();
                 case TokenType::Impl:
                 return parse_impl();
                 case TokenType::If://下边三个虽然是表达式，但是实际上他们在作为开头的时候，默认会进行一个直接的读入，作为块语句

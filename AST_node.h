@@ -16,6 +16,7 @@
 #include "semantic_check.h"
 #include "semantic_check.h"
 #include "semantic_check.h"
+#include "semantic_check.h"
 struct ASTNode;
 struct Expr;
 struct Stmt;
@@ -140,11 +141,27 @@ struct Type  {
     virtual bool equals(const Type *other)const =0;
     explicit Type(const TypeName t,std::shared_ptr<Type> Ptr=nullptr):typeKind(t),typePtr(std::move(Ptr)){}
     [[nodiscard]] virtual std::vector<Element> get_children() const =0;
+    [[nodiscard]] virtual std::string toString() const = 0;
 };//这样设计直接可以使用ASTNode中的get_type()
 
 struct TypeType:Type {
-    [[nodiscard]] std::vector<Element> get_children() const override;
-    TypeType():Type(TypeName::TypeType){}
+    [[nodiscard]] std::vector<Element> get_children() const override {
+        std::vector<Element> res;
+        res.emplace_back("TypeType:");
+        res.emplace_back(this->typePtr.get());
+        return res;
+    }
+    explicit TypeType(const std::shared_ptr<Type> &t=nullptr):Type(TypeName::TypeType,t){}
+    [[nodiscard]] std::string toString() const override {
+        return "Type"; // 表示“Type 类型”
+    }
+    bool equals(const Type *other) const override {
+        if (other->typeKind!=this->typeKind) {
+            return false;
+        }
+        auto other_type = dynamic_cast<const TypeType*>(other);
+        return other_type->typePtr->equals(this->typePtr.get());
+    }
 };
 
 struct BasicType : Type {
@@ -167,6 +184,20 @@ struct BasicType : Type {
         }
         return false; //如果dynamic_cast失败，则必定不是相同的类型
     }
+    [[nodiscard]] std::string toString() const override {
+        // 需根据你的 TypeName 枚举值调整，确保与实际定义匹配
+        switch(kind) {
+            case TypeName::Integer: return "int";
+            case TypeName::I32: return "i32";
+            case TypeName::U32: return "u32";
+            case TypeName::Isize: return "isize";
+            case TypeName::Usize: return "usize";
+            case TypeName::Bool: return "bool";
+            case TypeName::Char: return "char";
+            case TypeName::String: return "String";
+            default: return "BasicType(Unknown)"; // 兜底，避免未定义枚举
+        }
+    }
     [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
@@ -188,7 +219,24 @@ struct ArrayType : Type {
         }
         return false;
     }
+    // 实现 toString：格式为“[元素类型; 长度]”（多维数组递归展开）
+    [[nodiscard]] std::string toString() const override {
+        // 处理空指针（防御性编程）
+        if (!elementType) return "[nullptr; ?]";
 
+        // 简化：假设 length 是常量（若需支持变量，需 Expr 加 toString）
+        std::string len_str = "?";
+        // if (length) len_str = length->toString(); // 若 Expr 实现了 toString，可启用
+
+        // 递归生成多维数组字符串（如二维数组："[[i32; 5]; 3]"）
+        std::string base = "[" + elementType->toString() + "; " + len_str + "]";
+        if (dimension > 1) {
+            for (int i = 2; i <= dimension; ++i) {
+                base = "[" + base + "; " + len_str + "]";
+            }
+        }
+        return base;
+    }
     ~ArrayType() override = default;
 
     
@@ -208,7 +256,11 @@ struct IdentifierType : Type {//包含了单纯的struct,enum等信息
     bool equals(const Type *other) const override{
         return false;
     }
-    [[nodiscard]] std::vector<Element> get_children() const override;
+    // 实现 toString：直接返回自定义类型名
+    [[nodiscard]] std::string toString() const override {
+        return name; // 如 "Person"、"Color"
+    }
+    [[nodiscard]] std::vector<Element> get_children() const override ;
 };
 
 struct SelfType:Type {
@@ -216,7 +268,11 @@ struct SelfType:Type {
     bool equals(const Type *other) const override{
         return false;
     }
-    [[nodiscard]] std::vector<Element> get_children() const override;
+    // 实现 toString：返回 "Self"（符合 Rust 等语言的自引用习惯）
+    [[nodiscard]] std::string toString() const override {
+        return "Self";
+    }
+    [[nodiscard]] std::vector<Element> get_children() const override ;
 };
 
 struct Param {
@@ -245,7 +301,29 @@ struct FunctionType : Type {
         }
         return false;
     }
-    
+    // 实现 toString：格式为“(参数1类型, 参数2类型) -> 返回值类型”
+    [[nodiscard]] std::string toString() const override {
+        // 处理返回值空指针
+        std::string ret_str = "nullptr";
+        if (return_type) ret_str = return_type->toString();
+
+        // 拼接参数类型（如 "i32, bool"）
+        std::string params_str;
+        for (size_t i = 0; i < parameters.size(); ++i) {
+            if (i > 0) params_str += ", ";
+            // 若需显示参数名：params_str += parameters[i].name + ": ";
+            params_str += parameters[i].type->toString();
+        }
+
+        // 处理 Self 参数（如成员方法："&Self, i32"）
+        if (selfType) {
+            params_str = (is_and ? "&" : "") + selfType->toString() +
+                        (params_str.empty() ? "" : ", " + params_str);
+        }
+
+        // 最终函数类型字符串
+        return "(" + params_str + ") -> " + ret_str;
+    }
     
     [[nodiscard]] std::vector<Element> get_children() const override;
 };
@@ -257,12 +335,25 @@ struct ErrorType : Type {
         return false;
     }//只要是错误，一定判断失败
     [[nodiscard]] std::vector<Element> get_children() const override;
+    // 实现 toString：明确标识错误类型
+    [[nodiscard]] std::string toString() const override {
+        return "ErrorType";
+    }
 };
 
 struct UnitType : Type {
     explicit UnitType(): Type(TypeName::UnitType) {}
     bool equals(const Type *other) const override {
         return false;
+    }
+    // 新增：实现 get_children（原代码可能遗漏，需补全）
+    [[nodiscard]] std::vector<Element> get_children() const override {
+        return {};
+    }
+
+    // 实现 toString：返回单元类型标识（符合 Rust 习惯）
+    [[nodiscard]] std::string toString() const override {
+        return "()";
     }
 };
 
@@ -271,12 +362,113 @@ struct NeverType : Type {
     bool equals(const Type *other) const override {
         return true;
     }
+    // 新增：实现 get_children（原代码可能遗漏，需补全）
+    [[nodiscard]] std::vector<Element> get_children() const override {
+        return {};
+    }
+
+    // 实现 toString：返回永不类型标识（符合 Rust 习惯）
+    [[nodiscard]] std::string toString() const override {
+        return "!";
+    }
+};
+
+struct EnumType : Type {
+    int structID;
+    std::string structName;
+    std::unordered_map<std::string, unsigned int>* MemberNames;
+    EnumType(int structID,
+    std::string structName,
+    std::unordered_map<std::string, unsigned int>* MemberNames):Type(TypeName::EnumType),structID(structID),structName(std::move(structName)),MemberNames(MemberNames){}
+    // EnumType的三个纯虚函数实现
+    bool equals(const Type* other) const override {
+        // 先判断是否为EnumType类型
+        if (const auto* other_enum = dynamic_cast<const EnumType*>(other)) {
+            // 枚举类型相等的条件：结构ID相同且成员表相同
+            return structID == other_enum->structID &&
+                   *MemberNames == *other_enum->MemberNames;
+        }
+        return false;
+    }
+
+    [[nodiscard]] std::vector<Element> get_children() const override {
+        std::vector<Element> children;
+        // 添加枚举基本信息
+        children.emplace_back("structID: " + std::to_string(structID));
+        children.emplace_back("name: " + structName);
+
+        // 添加所有枚举成员
+        for (const auto& [name, value] : *MemberNames) {
+            children.emplace_back(name + ": " + std::to_string(value));
+        }
+        return children;
+    }
+
+    [[nodiscard]] std::string toString() const override {
+        std::string result = "EnumType { id: " + std::to_string(structID) +
+                            ", name: " + structName + ", members: { ";
+
+        // 拼接所有成员
+        size_t count = 0;
+        for (const auto& [name, value] : *MemberNames) {
+            if (count > 0) result += ", ";
+            result += name + ": " + std::to_string(value);
+            count++;
+        }
+        result += " } }";
+        return result;
+    }
+};
+
+struct StructType:Type {
+    int structID;
+    std::string structName;
+    SymbolTable* field;
+    int FieldNum;
+    StructType(int id, std::string name, SymbolTable* s,int f):
+    Type(TypeName::StructType),structID(id),structName(std::move(name)),field(s),FieldNum(f) {}
+    // StructType的三个纯虚函数实现
+    bool equals(const Type* other) const override {
+        // 先判断是否为StructType类型
+        if (const auto* other_struct = dynamic_cast<const StructType*>(other)) {
+            // 结构体类型相等的条件：结构ID相同且字段数量相同
+            return structID == other_struct->structID &&
+                   FieldNum == other_struct->FieldNum;
+        }
+        return false;
+    }
+
+    [[nodiscard]] std::vector<Element> get_children() const override {
+        std::vector<Element> children;
+        // 添加结构体基本信息
+        children.emplace_back("structID: " + std::to_string(structID));
+        children.emplace_back("name: " + structName);
+        children.emplace_back("field count: " + std::to_string(FieldNum));
+
+        // 如果需要可以添加字段符号表信息（根据你的SymbolTable实现调整）
+        // children.push_back("fields: " + field->toString()); // 假设SymbolTable有toString方法
+        return children;
+    }
+
+    [[nodiscard]] std::string toString() const override {
+        return "StructType { id: " + std::to_string(structID) +
+               ", name: " + structName + ", field count: " + std::to_string(FieldNum) + " }";
+    }
+
 };
 
 struct RustType : ASTNode {
     explicit RustType(std::shared_ptr<Type> t):
     ASTNode(TypeName::RustType,std::move(t)){}
-    [[nodiscard]] std::vector<Element> get_children() const override;
+    [[nodiscard]] std::vector<Element> get_children() const override {
+        std::vector<Element> children;
+        children.emplace_back("RustType:");
+        children.emplace_back(this->realType.get());
+        return children;
+    }
+    void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override {
+        return visitor.visit(this,F,l,f);
+    }
 };
 
 struct Expr : ASTNode {
@@ -284,9 +476,7 @@ struct Expr : ASTNode {
     explicit Expr(const TypeName t, std::shared_ptr<Type> e=nullptr): ASTNode(t), exprType(std::move(e)) {
     }
     ~Expr() override = default;
-    void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override {
-        return visitor.visit(this,F,l,f);
-    }
+    void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override=0;
     [[nodiscard]] std::vector<Element> get_children() const override=0;
 };
 
@@ -295,8 +485,9 @@ struct LiteralExpr : Expr {
     explicit LiteralExpr(std::string v, std::shared_ptr<Type> t) :
         Expr(TypeName::LiteralExpr, std::move(t)), value(std::move(v)) {
     }
-    
-    
+    void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override {
+        return visitor.visit(this,F,l,f);
+    }
     [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
@@ -468,7 +659,9 @@ struct AssignmentExpr : Expr {
     std::shared_ptr<Expr> right;
     AssignmentExpr(std::shared_ptr<Expr> l,std::string op,std::shared_ptr<Expr> r):
     Expr(TypeName::AssignmentStmt), left(std::move(l)),op(std::move(op)), right(std::move(r)) {}
-    
+    void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override {
+        return visitor.visit(this,F,l,f);
+    }
     
     [[nodiscard]] std::vector<Element> get_children() const override;
 };
@@ -485,6 +678,9 @@ struct StructExpr : Expr {
     StructExpr(std::shared_ptr<Expr> s,std::vector<application> a, std::shared_ptr<Type> t=nullptr):
     Expr(TypeName::StructExpr,std::move(t)), apps(std::move(a)), structname(std::move(s)) {}
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override {
+        return visitor.visit(this,F,l,f);
+    }
 };
 
 struct AsExpr : Expr {
@@ -493,6 +689,9 @@ struct AsExpr : Expr {
     explicit AsExpr(std::shared_ptr<Expr> e,std::shared_ptr<RustType> type,std::shared_ptr<Type> t=nullptr):
     Expr(TypeName::AsExpr,std::move(t)), expr(std::move(e)),type(std::move(type)) {}
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override {
+        return visitor.visit(this,F,l,f);
+    }
 };
 
 struct ContinueExpr : Expr {
@@ -578,23 +777,7 @@ struct FnStmt : Stmt {
     
     [[nodiscard]] std::vector<Element> get_children() const override;
 };
-struct EnumType : Type {
-    int structID;
-    std::string structName;
-    std::unordered_map<std::string, unsigned int>* MemberNames;
-    EnumType(int structID,
-    std::string structName,
-    std::unordered_map<std::string, unsigned int>* MemberNames):Type(TypeName::EnumType),structID(structID),structName(std::move(structName)),MemberNames(MemberNames){}
-};
 
-struct StructType:Type {
-    int structID;
-    std::string structName;
-    SymbolTable* field;
-    int FieldNum;
-    StructType(int id, std::string name, SymbolTable* s,int f):
-    Type(TypeName::StructType),structID(id),structName(std::move(name)),field(s),FieldNum(f) {}
-};
 
 struct StructStmt:Stmt {
     std::string name;
@@ -621,18 +804,18 @@ struct EnumStmt:Stmt{
     [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
-struct TraitStmt:Stmt {
-    std::string name;
-    std::vector<std::pair<std::shared_ptr<FnStmt>,bool> > fns;
-    std::vector<std::pair<std::shared_ptr<ConstStmt>,bool>> cons;
-    TraitStmt(std::string n,std::vector<std::pair<std::shared_ptr<FnStmt>,bool> >f,std::vector<std::pair<std::shared_ptr<ConstStmt>,bool>> c):
-    Stmt(TypeName::TraitStmt),name(std::move(n)),fns(std::move(f)),cons(std::move(c)){}
-
-    void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override {
-        return visitor.visit(this,F,l,f);
-    }
-    [[nodiscard]] std::vector<Element> get_children() const override;
-};
+// struct TraitStmt:Stmt {
+//     std::string name;
+//     std::vector<std::pair<std::shared_ptr<FnStmt>,bool> > fns;
+//     std::vector<std::pair<std::shared_ptr<ConstStmt>,bool>> cons;
+//     TraitStmt(std::string n,std::vector<std::pair<std::shared_ptr<FnStmt>,bool> >f,std::vector<std::pair<std::shared_ptr<ConstStmt>,bool>> c):
+//     Stmt(TypeName::TraitStmt),name(std::move(n)),fns(std::move(f)),cons(std::move(c)){}
+//
+//     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override {
+//         return visitor.visit(this,F,l,f);
+//     }
+//     [[nodiscard]] std::vector<Element> get_children() const override;
+// };
 
 //区分固有实现还是特征实现
 struct InherentImplStmt:Stmt {
@@ -648,19 +831,19 @@ struct InherentImplStmt:Stmt {
     [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
-struct TraitImplStmt:Stmt {
-    std::string trait_name;
-    std::string struct_name;
-    std::vector<std::pair<std::shared_ptr<FnStmt>,bool> > fns;
-    std::vector<std::pair<std::shared_ptr<ConstStmt>,bool>> cons;
-    TraitImplStmt(std::string t,std::string s,std::vector<std::pair<std::shared_ptr<FnStmt>,bool> >f,std::vector<std::pair<std::shared_ptr<ConstStmt>,bool>> c)
-        : Stmt(TypeName::TraitImplStmt),trait_name(std::move(t)), struct_name(std::move(s)), fns(std::move(f)),cons(std::move(c)) {}
-    void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override {
-        return visitor.visit(this,F,l,f);
-    }
-
-    [[nodiscard]] std::vector<Element> get_children() const override;
-};
+// struct TraitImplStmt:Stmt {
+//     std::string trait_name;
+//     std::string struct_name;
+//     std::vector<std::pair<std::shared_ptr<FnStmt>,bool> > fns;
+//     std::vector<std::pair<std::shared_ptr<ConstStmt>,bool>> cons;
+//     TraitImplStmt(std::string t,std::string s,std::vector<std::pair<std::shared_ptr<FnStmt>,bool> >f,std::vector<std::pair<std::shared_ptr<ConstStmt>,bool>> c)
+//         : Stmt(TypeName::TraitImplStmt),trait_name(std::move(t)), struct_name(std::move(s)), fns(std::move(f)),cons(std::move(c)) {}
+//     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override {
+//         return visitor.visit(this,F,l,f);
+//     }
+//
+//     [[nodiscard]] std::vector<Element> get_children() const override;
+// };
 
 struct LetStmt:Stmt {
     std::string identifier;

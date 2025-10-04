@@ -360,10 +360,34 @@ std::shared_ptr<Type> SemanticCheck::ItemToType(std::shared_ptr<Type> t) {
     if (t->typeKind==TypeName::UnitType) {
         return t;
     }
-    return std::make_shared<Type>(TypeName::TypeType,t);
+    return std::make_shared<TypeType>(t);
 }
 
-void SemanticCheck::is_StrongDerivable(const std::shared_ptr<Type>& T1,const std::shared_ptr<Type>& T0,bool canRemoveMut=true) {
+void SemanticCheck::visit(PathExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
+
+}
+
+void SemanticCheck::visit(FieldAccessExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
+
+}
+
+void SemanticCheck::visit(CallExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
+
+}
+
+void SemanticCheck::visit(UnitExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
+    node->realType=std::make_shared<UnitType>();
+}
+
+void SemanticCheck::visit(EnumStmt *node, ASTNode *F, ASTNode *l, ASTNode *f) {
+
+}
+
+void SemanticCheck::visit(InherentImplStmt *node, ASTNode *F, ASTNode *l, ASTNode *f) {
+
+}
+
+void SemanticCheck::is_StrongDerivable(const std::shared_ptr<Type>& T1,const std::shared_ptr<Type>& T0,bool canRemoveMut) {
     if (T1->typeKind==T0->typeKind&&T1->typePtr->equals(T0->typePtr.get())) {
         return;
     }

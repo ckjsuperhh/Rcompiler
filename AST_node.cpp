@@ -17,11 +17,11 @@ std::string get_node_type_str(TypeName type) {
         {TypeName::Uint, "Uint"},
         {TypeName::String, "String"},
         {TypeName::Char, "Char"},
-        {TypeName::i32, "i32"},
-        {TypeName::u32, "u32"},
-        {TypeName::isize, "isize"},
-        {TypeName::usize, "usize"},
-        {TypeName::unit, "unit"},
+        {TypeName::I32, "i32"},
+        {TypeName::U32, "u32"},
+        {TypeName::Isize, "isize"},
+        {TypeName::Usize, "usize"},
+        {TypeName::Unit, "unit"},
 
         // 复合类型
         {TypeName::BasicType, "BasicType"},
@@ -94,18 +94,25 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         bool last_child = (i == children.size() - 1);
         std::vector<std::string> child_content;
         std::visit([&]<typename T0>(T0&& elem) {
-           using T = std::decay_t<T0>;
-           if constexpr (std::is_same_v<T, ASTNode*>) {
-               // 如果是ASTNode，递归展示其树形结构
-               child_content = elem->showTree(depth + 1, last_child);
-           } else if constexpr (std::is_same_v<T, std::string>) {
-               // 对于字符串类型，直接使用该字符串
-               child_content = {elem};  // 不再调用std::to_string
-           } else {
-               // 对于其他数值类型（如int），使用std::to_string
-               child_content = {std::to_string(elem)};
-           }
-       }, children[i]);
+            using T = std::decay_t<T0>;
+            if constexpr (std::is_same_v<T, ASTNode*>) {
+                // 如果是ASTNode，递归展示其树形结构
+                child_content = elem->showTree(depth + 1, last_child);
+            } else if constexpr (std::is_same_v<T, std::string>) {
+                // 对于字符串类型，直接使用该字符串
+                child_content = {elem};
+            } else if constexpr (std::is_same_v<T, Type*>) {
+                // 处理Type*类型：调用其toString()方法
+                if (elem != nullptr) {
+                    child_content = {elem->toString()};
+                } else {
+                    child_content = {"nullptr (Type*)"}; // 处理空指针情况
+                }
+            } else {
+                // 对于其他数值类型（如int），使用std::to_string
+                child_content = {std::to_string(elem)};
+            }
+        }, children[i]);
         res.emplace_back("|");
         for (size_t j = 0; j < child_content.size(); ++j) {
             std::string prefix;
@@ -133,12 +140,12 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         case TypeName::Void:     kind_str = "Void";     break;
         case TypeName::Uint:     kind_str = "Uint";     break;
         case TypeName::String:   kind_str = "String";   break;
-        case TypeName::i32:      kind_str = "i32";      break;
-        case TypeName::u32:      kind_str = "u32";      break;
-        case TypeName::isize:    kind_str = "isize";    break;
-        case TypeName::usize:    kind_str = "usize";    break;
+        case TypeName::I32:      kind_str = "i32";      break;
+        case TypeName::U32:      kind_str = "u32";      break;
+        case TypeName::Isize:    kind_str = "isize";    break;
+        case TypeName::Usize:    kind_str = "usize";    break;
         case TypeName::Char:     kind_str = "Char";     break;
-        case TypeName::unit:     kind_str = "unit";     break;
+        case TypeName::Unit:     kind_str = "unit";     break;
         case TypeName::Integer:  kind_str = "Integer";  break;  // 通用整数类型
         default:                 kind_str = "UnknownBasicType";
     }
@@ -837,43 +844,43 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
     return children;
 }
 
-// 5. TraitStmt 类实现
-[[nodiscard]] std::vector<Element> TraitStmt::get_children() const  {
-    std::vector<Element> children;
-
-    // Trait 名（字符串属性）
-    children.emplace_back("trait_name: " + name);
-
-    // Trait 中的函数列表（pair<FnStmt*, bool>，bool 通常表示是否为默认实现）
-    children.emplace_back("trait_fns(count: " + std::to_string(fns.size()) + "):");
-    for (size_t i = 0; i < fns.size(); ++i) {
-        const auto& fn_pair = fns[i];
-        // 标记是否为默认实现
-        children.emplace_back("  fn[" + std::to_string(i) + "] (is_default: " + (fn_pair.second ? "true" : "false") + "):");
-        // 函数节点（FnStmt* 子节点）
-        if (fn_pair.first) {
-            children.emplace_back(fn_pair.first.get());
-        } else {
-            children.emplace_back("  fn[" + std::to_string(i) + "_body: null");
-        }
-    }
-
-    // Trait 中的常量列表（pair<ConstStmt*, bool>）
-    children.emplace_back("trait_consts(count: " + std::to_string(cons.size()) + "):");
-    for (size_t i = 0; i < cons.size(); ++i) {
-        const auto& const_pair = cons[i];
-        // 标记是否为默认值
-        children.emplace_back("  const[" + std::to_string(i) + "] (is_default: " + (const_pair.second ? "true" : "false") + "):");
-        // 常量节点（ConstStmt* 子节点）
-        if (const_pair.first) {
-            children.emplace_back(const_pair.first.get());
-        } else {
-            children.emplace_back("  const[" + std::to_string(i) + "_body: null");
-        }
-    }
-
-    return children;
-}
+// // 5. TraitStmt 类实现
+// [[nodiscard]] std::vector<Element> TraitStmt::get_children() const  {
+//     std::vector<Element> children;
+//
+//     // Trait 名（字符串属性）
+//     children.emplace_back("trait_name: " + name);
+//
+//     // Trait 中的函数列表（pair<FnStmt*, bool>，bool 通常表示是否为默认实现）
+//     children.emplace_back("trait_fns(count: " + std::to_string(fns.size()) + "):");
+//     for (size_t i = 0; i < fns.size(); ++i) {
+//         const auto& fn_pair = fns[i];
+//         // 标记是否为默认实现
+//         children.emplace_back("  fn[" + std::to_string(i) + "] (is_default: " + (fn_pair.second ? "true" : "false") + "):");
+//         // 函数节点（FnStmt* 子节点）
+//         if (fn_pair.first) {
+//             children.emplace_back(fn_pair.first.get());
+//         } else {
+//             children.emplace_back("  fn[" + std::to_string(i) + "_body: null");
+//         }
+//     }
+//
+//     // Trait 中的常量列表（pair<ConstStmt*, bool>）
+//     children.emplace_back("trait_consts(count: " + std::to_string(cons.size()) + "):");
+//     for (size_t i = 0; i < cons.size(); ++i) {
+//         const auto& const_pair = cons[i];
+//         // 标记是否为默认值
+//         children.emplace_back("  const[" + std::to_string(i) + "] (is_default: " + (const_pair.second ? "true" : "false") + "):");
+//         // 常量节点（ConstStmt* 子节点）
+//         if (const_pair.first) {
+//             children.emplace_back(const_pair.first.get());
+//         } else {
+//             children.emplace_back("  const[" + std::to_string(i) + "_body: null");
+//         }
+//     }
+//
+//     return children;
+// }
 
 // 6. InherentImplStmt 类实现
 [[nodiscard]] std::vector<Element> InherentImplStmt::get_children() const  {
@@ -909,40 +916,40 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
     return children;
 }
 
-// 7. TraitImplStmt 类实现
-[[nodiscard]] std::vector<Element> TraitImplStmt::get_children() const  {
-    std::vector<Element> children;
-
-    // 实现的 Trait 名和关联的结构体名（字符串属性）
-    children.emplace_back("impl_trait: " + trait_name);
-    children.emplace_back("impl_for_struct: " + struct_name);
-
-    // 实现的函数列表（同 TraitStmt）
-    children.emplace_back("impl_fns(count: " + std::to_string(fns.size()) + "):");
-    for (size_t i = 0; i < fns.size(); ++i) {
-        const auto& fn_pair = fns[i];
-        children.emplace_back("  fn[" + std::to_string(i) + "] (is_default: " + (fn_pair.second ? "true" : "false") + "):");
-        if (fn_pair.first) {
-            children.emplace_back(fn_pair.first.get());
-        } else {
-            children.emplace_back("  fn[" + std::to_string(i) + "_body: null");
-        }
-    }
-
-    // 实现的常量列表（同 TraitStmt）
-    children.emplace_back("impl_consts(count: " + std::to_string(cons.size()) + "):");
-    for (size_t i = 0; i < cons.size(); ++i) {
-        const auto& const_pair = cons[i];
-        children.emplace_back("  const[" + std::to_string(i) + "] (is_default: " + (const_pair.second ? "true" : "false") + "):");
-        if (const_pair.first) {
-            children.emplace_back(const_pair.first.get());
-        } else {
-            children.emplace_back("  const[" + std::to_string(i) + "_body: null");
-        }
-    }
-
-    return children;
-}
+// // 7. TraitImplStmt 类实现
+// [[nodiscard]] std::vector<Element> TraitImplStmt::get_children() const  {
+//     std::vector<Element> children;
+//
+//     // 实现的 Trait 名和关联的结构体名（字符串属性）
+//     children.emplace_back("impl_trait: " + trait_name);
+//     children.emplace_back("impl_for_struct: " + struct_name);
+//
+//     // 实现的函数列表（同 TraitStmt）
+//     children.emplace_back("impl_fns(count: " + std::to_string(fns.size()) + "):");
+//     for (size_t i = 0; i < fns.size(); ++i) {
+//         const auto& fn_pair = fns[i];
+//         children.emplace_back("  fn[" + std::to_string(i) + "] (is_default: " + (fn_pair.second ? "true" : "false") + "):");
+//         if (fn_pair.first) {
+//             children.emplace_back(fn_pair.first.get());
+//         } else {
+//             children.emplace_back("  fn[" + std::to_string(i) + "_body: null");
+//         }
+//     }
+//
+//     // 实现的常量列表（同 TraitStmt）
+//     children.emplace_back("impl_consts(count: " + std::to_string(cons.size()) + "):");
+//     for (size_t i = 0; i < cons.size(); ++i) {
+//         const auto& const_pair = cons[i];
+//         children.emplace_back("  const[" + std::to_string(i) + "] (is_default: " + (const_pair.second ? "true" : "false") + "):");
+//         if (const_pair.first) {
+//             children.emplace_back(const_pair.first.get());
+//         } else {
+//             children.emplace_back("  const[" + std::to_string(i) + "_body: null");
+//         }
+//     }
+//
+//     return children;
+// }
 
 // 8. LetStmt 类实现
 [[nodiscard]] std::vector<Element> LetStmt::get_children() const  {
@@ -973,59 +980,9 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
 // 9. Program 类实现
 [[nodiscard]] std::vector<Element> Program::get_children() const  {
     std::vector<Element> children;
-
-    // 全局常量列表（ConstStmt* 子节点）
-    if (!cons.empty()) {
-        children.emplace_back("program_consts(count: " + std::to_string(cons.size()) + "):");
-        for (const auto& c : cons) {
-            if (c) children.emplace_back(c.get());
-        }
-    }
-
-    // 全局函数列表（FnStmt* 子节点）
-    if (!fns.empty()) {
-        children.emplace_back("program_fns(count: " + std::to_string(fns.size()) + "):");
-        for (const auto& f : fns) {
-            if (f) children.emplace_back(f.get());
-        }
-    }
-
-    // 全局枚举列表（EnumStmt* 子节点）
-    if (!enums.empty()) {
-        children.emplace_back("program_enums(count: " + std::to_string(enums.size()) + "):");
-        for (const auto& e : enums) {
-            if (e) children.emplace_back(e.get());
-        }
-    }
-
-    // 全局结构体列表（StructStmt* 子节点）
-    if (!structs.empty()) {
-        children.emplace_back("program_structs(count: " + std::to_string(structs.size()) + "):");
-        for (const auto& s : structs) {
-            if (s) children.emplace_back(s.get());
-        }
-    }
-
-    // 固有实现列表（InherentImplStmt* 子节点）
-    if (!inherits.empty()) {
-        children.emplace_back("program_inherent_impls(count: " + std::to_string(inherits.size()) + "):");
-        for (const auto& inh : inherits) {
-            if (inh) children.emplace_back(inh.get());
-        }
-    }
-
-    // Trait 列表（TraitStmt* 子节点）
-    if (!traits.empty()) {
-        children.emplace_back("program_traits(count: " + std::to_string(traits.size()) + "):");
-        for (const auto& t : traits) {
-            if (t) children.emplace_back(t.get());
-        }
-    }
-
-    // Trait 实现列表（TraitImplStmt* 子节点）
-    if (!impls.empty()) {
-        children.emplace_back("program_trait_impls(count: " + std::to_string(impls.size()) + "):");
-        for (const auto& im : impls) {
+    if (!statements.empty()) {
+        children.emplace_back("program_trait_impls(count: " + std::to_string(statements.size()) + "):");
+        for (const auto& im : statements) {
             if (im) children.emplace_back(im.get());
         }
     }

@@ -978,12 +978,22 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
 }
 
 // 9. Program 类实现
-[[nodiscard]] std::vector<Element> Program::get_children() const  {
+[[nodiscard]] std::vector<Element> Program::get_children() const {
     std::vector<Element> children;
+    std::unordered_map<TypeName,std::string> t={
+        {TypeName::FnStmt,"fn"},
+        {TypeName::EnumStmt,"enum"},
+        {TypeName::InherentImplStmt,"impl_for"},
+        {TypeName::ConstStmt,"const"},
+        {TypeName::StructStmt,"struct_declaration"}
+};
     if (!statements.empty()) {
-        children.emplace_back("program_trait_impls(count: " + std::to_string(statements.size()) + "):");
+        children.emplace_back("program(count: " + std::to_string(statements.size()) + "):");
         for (const auto& im : statements) {
-            if (im) children.emplace_back(im.get());
+            if (im) {
+                children.emplace_back(t[im->get_type()]+":");
+                children.emplace_back(im.get());
+            }
         }
     }
 

@@ -1,0 +1,3 @@
+//Right:just test the topological_sorting of Conststmts.
+const b:[i32;a]=[a];
+const a:i32=1;

@@ -32,11 +32,21 @@ std::string getNodeIdentifier(ASTNode* node) {
         auto fnnode=dynamic_cast<FnStmt*>(node);
         return fnnode->name;
     }
+    if (node->node_type==TypeName::PathExpr) {
+        auto pathexpr=dynamic_cast<PathExpr*>(node);
+        return pathexpr->segments.back();
+    }
+    if (node->node_type==TypeName::RustType) {
+        auto rusttype=dynamic_cast<RustType*>(node);
+        if (rusttype->realType->typeKind==TypeName::IdentifierType) {
+            return "Type-"+std::dynamic_pointer_cast<IdentifierType>(rusttype->realType)->name;
+        }
+    }
     throw std::runtime_error("Unknown item type");
 }
 
 bool is_Item(const ASTNode* i) {
-    return i->node_type==TypeName::StructStmt||i->node_type==TypeName::EnumStmt||i->node_type==TypeName::FnStmt||i->node_type==TypeName::ConstStmt;
+    return i->node_type==TypeName::StructStmt||i->node_type==TypeName::EnumStmt||i->node_type==TypeName::ConstStmt;
 }
 
 std::vector<std::shared_ptr<ASTNode>> get_ASTNode_children(ASTNode* node) {
@@ -92,7 +102,7 @@ void SemanticCheck::resolveDependency(ASTNode*node,std::shared_ptr<Type> SelfTyp
             while (!nodeStack.empty()) {
                 ASTNode* curnode=nodeStack.top();
                 nodeStack.pop();
-                if (curnode->node_type==TypeName::PathExpr) {
+                if (curnode->node_type==TypeName::PathExpr||(curnode->node_type==TypeName::RustType&&curnode->realType->typeKind==TypeName::IdentifierType)) {
                     std::string refID=getNodeIdentifier(curnode);
                     int refIndex=std::lower_bound(itemName.begin(),itemName.end(),refID)-itemName.begin();
                     if (refIndex<sum&&itemName[refIndex]==refID&&itemTable[refID]->node_type!=TypeName::FnStmt) {
@@ -189,6 +199,9 @@ void SemanticCheck::resolveDependency(ASTNode*node,std::shared_ptr<Type> SelfTyp
           auto Constnode=std::dynamic_pointer_cast<ConstStmt>(child);
           Constnode->type->scope=Constnode->scope;
           pre_processor(Constnode->type.get(),nullptr,nullptr,nullptr);
+          if (Constnode->identifier=="b") {
+              std::cerr<<"B"<<std::endl;
+          }
           Constnode->type->accept(*this,nullptr,nullptr,nullptr);
           Constnode->expr->scope=Constnode->scope;
           pre_processor(Constnode->expr.get(),nullptr,nullptr,nullptr);
@@ -297,7 +310,7 @@ void SemanticCheck::resolveDependency(ASTNode*node,std::shared_ptr<Type> SelfTyp
 
 void SemanticCheck::pre_processor(ASTNode *node, ASTNode *F, ASTNode *l, ASTNode *f) {
     auto v=node->get_children();
-    if (node->realType==nullptr) {
+    if (node->realType!=nullptr) {
         return;
     }
     if (node->get_type()==TypeName::BlockExpr) {
@@ -364,7 +377,13 @@ std::shared_ptr<Type> SemanticCheck::ItemToType(std::shared_ptr<Type> t) {
 }
 
 void SemanticCheck::visit(PathExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
-
+    if (node->segments.size()==1) {
+        auto e=node->scope.first->lookup_i(node->segments[0]);
+        node->realType=e.type;
+        node->eval=e.eval;
+    }else {
+        throw std::runtime_error("I don't know how to solve it!!!");
+    }
 }
 
 void SemanticCheck::visit(FieldAccessExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
@@ -388,7 +407,7 @@ void SemanticCheck::visit(InherentImplStmt *node, ASTNode *F, ASTNode *l, ASTNod
 }
 
 void SemanticCheck::is_StrongDerivable(const std::shared_ptr<Type>& T1,const std::shared_ptr<Type>& T0,bool canRemoveMut) {
-    if (T1->typeKind==T0->typeKind&&T1->typePtr->equals(T0->typePtr.get())) {
+    if (T1->typeKind==T0->typeKind&&T1->equals(T0.get())) {
         return;
     }
     if (T1->typeKind==TypeName::NeverType||T1->typeKind==TypeName::VersatileType||
@@ -413,9 +432,16 @@ void SemanticCheck::is_StrongDerivable(const std::shared_ptr<Type>& T1,const std
     if (T1->typeKind==TypeName::ArrayType&&T0->typeKind==TypeName::ArrayType) {
         auto Array_T1=std::dynamic_pointer_cast<ArrayType>(T1);
         auto Array_T0=std::dynamic_pointer_cast<ArrayType>(T0);
-        if (Array_T1->length==Array_T0->length) {
+        if (Array_T1->length->eval.has_value()&&Array_T0->length->eval.has_value()) {
+            if (std::any_cast<long long>(Array_T1->length->eval)==std::any_cast<long long>(Array_T0->length->eval)) {
             is_StrongDerivable(Array_T1->typePtr,Array_T0->typePtr,canRemoveMut);
+        }else {
+            throw std::runtime_error("length is not the same!!!");
         }
+        }else {
+            throw std::runtime_error("where is the eval of length???");
+        }
+        return;
     }
     //TODO
     throw std::runtime_error("SemanticCheck::ItemToType: type mismatch");
@@ -471,20 +497,23 @@ void SemanticCheck::is_AllDerivable(std::shared_ptr<Type>& T1,std::shared_ptr<Ty
     }
     if (T1->typeKind==TypeName::BasicType&&T0->typeKind==TypeName::BasicType) {
         is_NumDerivable(T1,T0);
+        return;
     }
     throw std::runtime_error("SemanticCheck::Deriving: type mismatch");
 }
 
+const SymbolEntry null={std::make_shared<ErrorType>(), std::any(), false, false};
+
 SymbolEntry SymbolTable::lookup_i(std::string stri) {
     if (!item_Table.contains(stri)) {
-        throw std::runtime_error("SymbolTable::lookup_i: symbol table does not exist");
+        return null;
     }
     return item_Table[stri];
 }
 
 SymbolEntry SymbolTable::lookup_t(std::string stri) {
     if (!type_Table.contains(stri)) {
-        throw std::runtime_error("SymbolTable::lookup_t: variable does not exist in the Symbol Table");
+        return null;
     }
     return type_Table[stri];
 }
@@ -821,7 +850,7 @@ void SemanticCheck::visit(LiteralExpr *node, ASTNode *F, ASTNode *l, ASTNode *f)
         }else {//不存在后缀的integer，那么就需要推导类型了
             auto res = std::stoll(inform);
             node->eval=res;
-            if (F->node_type==TypeName::UnaryExpr) {
+            if (F&&F->node_type==TypeName::UnaryExpr) {
                 auto Unary_father=dynamic_cast<UnaryExpr*>(F);
                 if (Unary_father->op=="-") {
                     res=-res;
@@ -984,5 +1013,20 @@ void SemanticCheck::visit(RustType* node, ASTNode *F, ASTNode *l, ASTNode *f) {
     }
 }
 
+void SemanticCheck::loadBuiltin(ASTNode* node) {
+    node->scope=std::make_pair(new SymbolTable(),nullptr);
+    std::vector<Param> p{};
+    p.emplace_back("",std::make_shared<BasicType>(TypeName::I32));
+    auto T1=std::make_shared<FunctionType>(p,std::make_shared<UnitType>());
+    node->scope.first->setItem("exit",{T1,std::any(),false,true});
+    node->scope.first->setItem("printInt",{T1,std::any(),false,true});
+    node->scope.first->setItem("printFlnInt",{T1,std::any(),false,true});
+
+}
+
+void SemanticCheck::Analyze(ASTNode* node) {
+    loadBuiltin(node);
+    pre_processor(node,nullptr,nullptr,nullptr);
+}
 
 

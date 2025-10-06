@@ -4,7 +4,8 @@ project(Compiler)
 set(CMAKE_CXX_STANDARD 20)
 
 enable_testing()
-add_subdirectory(test)
+#add_subdirectory(test/my-testcases)
+add_subdirectory(test/wxzheng)
 
 add_executable(Compiler main.cpp
         tokenizer.h

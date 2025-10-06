@@ -103,6 +103,11 @@ public:
 
     void visit(Program *node,ASTNode* F,ASTNode* l,ASTNode* f);
     void visit(RustType *node,ASTNode *F,ASTNode *l,ASTNode* f);
+
+    void loadBuiltin(ASTNode *node);
+
+    void Analyze(ASTNode *node);
+
     void visit(LiteralExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
     void visit(LoopExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);
     void visit(BlockExpr *node,ASTNode* F,ASTNode* l,ASTNode* f);

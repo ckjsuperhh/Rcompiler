@@ -172,12 +172,12 @@ struct BasicType : Type {
 
     bool equals(const Type *other) const override{
         if (auto basic = dynamic_cast<const BasicType *>(other)) {
-            if (basic->kind == TypeName::Integer) {
-                return kind == TypeName::Integer || kind == TypeName::I32 || kind == TypeName::U32 ||
+            if (basic->kind == TypeName::Int) {
+                return kind == TypeName::Int || kind == TypeName::I32 || kind == TypeName::U32 ||
                     kind == TypeName::Isize || kind == TypeName::Usize;
             }
-            if (kind == TypeName::Integer) {
-                return basic->kind == TypeName::Integer || basic->kind == TypeName::I32 ||
+            if (kind == TypeName::Int) {
+                return basic->kind == TypeName::Int || basic->kind == TypeName::I32 ||
                     basic->kind == TypeName::U32 || basic->kind == TypeName::Isize || basic->kind == TypeName::Usize;
             }
             return basic->kind == kind;

@@ -88,7 +88,7 @@
         Whitespace, // 空白（原WHITESPACE）
         Invalid,// 无效 token（原INVALID）
         Integer, EqEq, Mod, Unit , self, Self, Andand
-        , MinusEqual, SlashEqual,PlusEqual,StarEqual,Eof // 文件结束
+        , MinusEqual, SlashEqual,PlusEqual,StarEqual, Basic,Eof // 文件结束
 
 
 
@@ -307,7 +307,7 @@
                 }
 
                 tokens.emplace_back(next_token());
-                std::cerr<<"tokenizer:"<<TokenToOutput(tokens.back().type)<<":"<<tokens.back().value<<std::endl;
+                // std::cerr<<"tokenizer:"<<TokenToOutput(tokens.back().type)<<":"<<tokens.back().value<<std::endl;
                 while (boost::regex_search(start, end, match, whitespace, boost::match_continuous)) {
                     start += match.length();//跳过空白符
                 }
@@ -319,6 +319,7 @@
 
         Token next_token() {
             boost::regex keyword(R"(^\b(crate|mod|move|ref|self|Self|super|type|use|where|try|gen)\b)");
+            boost::regex basic(R"(^\b(i32|u32|isize|usize|String|bool|char)\b)");
             boost::regex sstring("\"[a-zA-Z0-9]*\"");
             boost::regex bbool(R"(^\b(false|true)\b)");
             boost::regex sself(R"(^\b(self)\b)");
@@ -368,6 +369,9 @@
             boost::regex unit(R"(^\(\)$)");
             boost::smatch match;
             std::vector<Token> waiting_tokens;
+            if (boost::regex_search(start, end, match,basic, boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::Basic, match.str());
+            }
             if (boost::regex_search(start, end, match,eelse, boost::match_continuous)) {
                 waiting_tokens.emplace_back(TokenType::Else, match.str());
             }

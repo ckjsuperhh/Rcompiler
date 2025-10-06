@@ -838,6 +838,8 @@ static std::string get_type_str(TokenType type) {
         if (match(TokenType::Equal)) {
             expr=parse_expression();
         }
+        expect(TokenType::Semicolon);
+        consume();
         return std::make_shared<ConstStmt>(name,std::move(type_annotation),std::move(expr));
     }
 
@@ -959,7 +961,7 @@ static std::string get_type_str(TokenType type) {
         }
         type->is_and=is_and;
         type->is_mutable=is_mutable;
-        return type;
+        return std::make_shared<TypeType>(std::move(type));
     }
 
     std::shared_ptr<RustType> parse_Rust_type() {
@@ -971,20 +973,7 @@ static std::string get_type_str(TokenType type) {
         if (match(TokenType::Mut)) {
             is_mutable=true;
         }
-        std::shared_ptr<Type> type;
-        switch (peek().type) {
-            case TokenType::LBracket:
-                type= parse_array_type();
-                break;
-            case TokenType::Identifier:
-                type= parse_identifier_type();
-                break;
-            case TokenType::Self:
-                type= parse_Self_type();
-                break;
-            default:
-                type= parse_basic_type();
-        }
+        std::shared_ptr<Type> type=parse_type();
         type->is_and=is_and;
         type->is_mutable=is_mutable;
         return std::make_shared<RustType>(type);

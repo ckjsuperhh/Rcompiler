@@ -912,7 +912,7 @@ static std::string get_type_str(TokenType type) {
 
     std::shared_ptr<Type> parse_array_type() {
         consume();
-        std::shared_ptr<Type> elem_type = parse_type();
+        std::shared_ptr<Type> elem_type = parse_type(false);
         expect(TokenType::Semicolon);
         consume();
         auto length=parse_expression();
@@ -936,7 +936,7 @@ static std::string get_type_str(TokenType type) {
         return std::make_shared<SelfType>();
     }
 
-    std::shared_ptr<Type> parse_type() {
+    std::shared_ptr<Type> parse_type(bool inner=true) {
         bool is_and=false;
         bool is_mutable=false;
         if (match(TokenType::And)) {
@@ -961,7 +961,10 @@ static std::string get_type_str(TokenType type) {
         }
         type->is_and=is_and;
         type->is_mutable=is_mutable;
-        return std::make_shared<TypeType>(std::move(type));
+        if (inner) {
+            return std::make_shared<TypeType>(std::move(type));
+        }
+        return type;
     }
 
     std::shared_ptr<RustType> parse_Rust_type() {

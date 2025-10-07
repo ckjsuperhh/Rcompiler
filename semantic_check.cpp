@@ -311,7 +311,9 @@ void SemanticCheck::resolveDependency(ASTNode*node,std::shared_ptr<Type> SelfTyp
 void SemanticCheck::pre_processor(ASTNode *node, ASTNode *F, ASTNode *l, ASTNode *f) {
     auto v=node->get_children();
     if (node->realType!=nullptr) {
-        return;
+        if (node->realType->typeKind!=TypeName::RustType) {
+            return;
+        }
     }
     if (node->get_type()==TypeName::BlockExpr) {
         node->scope=std::make_pair(new SymbolTable(),F);
@@ -377,6 +379,7 @@ std::shared_ptr<Type> SemanticCheck::ItemToType(std::shared_ptr<Type> t) {
 }
 
 void SemanticCheck::visit(PathExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
+    std::cerr<<"hillo"<<std::endl;
     if (node->segments.size()==1) {
         auto e=node->scope.first->lookup_i(node->segments[0]);
         node->realType=e.type;
@@ -433,6 +436,10 @@ void SemanticCheck::is_StrongDerivable(const std::shared_ptr<Type>& T1,const std
         auto Array_T1=std::dynamic_pointer_cast<ArrayType>(T1);
         auto Array_T0=std::dynamic_pointer_cast<ArrayType>(T0);
         if (Array_T1->length->eval.has_value()&&Array_T0->length->eval.has_value()) {
+            auto a=std::any_cast<long long>(Array_T1->length->eval);
+            std::cerr<<"Array length: "<<a<<std::endl;
+            auto b=std::any_cast<long long>(Array_T0->length->eval);
+            std::cerr<<"Array length: "<<b<<std::endl;
             if (std::any_cast<long long>(Array_T1->length->eval)==std::any_cast<long long>(Array_T0->length->eval)) {
             is_StrongDerivable(Array_T1->typePtr,Array_T0->typePtr,canRemoveMut);
         }else {
@@ -444,7 +451,7 @@ void SemanticCheck::is_StrongDerivable(const std::shared_ptr<Type>& T1,const std
         return;
     }
     //TODO
-    throw std::runtime_error("SemanticCheck::ItemToType: type mismatch");
+    throw std::runtime_error("SemanticCheck::StrongDerivable: type mismatch");
 
 }
 
@@ -801,7 +808,7 @@ void SemanticCheck::visit(UnaryExpr*node,ASTNode* F,ASTNode* l,ASTNode* f) {
 }
 
 void SemanticCheck::visit(LiteralExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
-    auto T=std::static_pointer_cast<BasicType>(node->exprType);
+    auto T=std::static_pointer_cast<BasicType>(node->realType);
     if (T->kind==TypeName::Bool) {
         node->realType=std::make_shared<BasicType>(TypeName::Bool);
         node->eval=node->value=="true";
@@ -922,7 +929,8 @@ void SemanticCheck::visit(ArrayInitExpr *node, ASTNode *F, ASTNode *l, ASTNode *
             array_children.push_back(child->eval);
         }
     }
-    node->realType=std::make_shared<ArrayType>(T,std::make_shared<LiteralExpr>(std::to_string(static_cast<unsigned int>(array_children.size())),std::make_shared<BasicType>(TypeName::Usize)));
+    node->realType=std::make_shared<ArrayType>(T,std::make_shared<LiteralExpr>(std::to_string(
+        static_cast<long long>(array_children.size())),std::make_shared<BasicType>(TypeName::Usize), static_cast<long long>(array_children.size())));
     if (strtok) {
         node->eval=array_children;
     }
@@ -991,26 +999,55 @@ void SemanticCheck::visit(AsExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
 }
 
 void SemanticCheck::visit(RustType* node, ASTNode *F, ASTNode *l, ASTNode *f) {
-    if (node->realType->typeKind==TypeName::IdentifierType) {
-        auto Id_T=std::dynamic_pointer_cast<IdentifierType>(node->realType);
-        auto T=node->scope.first->lookup_t(Id_T->name).type;
-        if (T->typeKind!=TypeName::Type) {//我这个位置有点没写明白
-            throw std::runtime_error("SemanticCheck::visit: I don't know!!!");
-        }
-        node->realType=T;
-    }else if (node->realType->typeKind==TypeName::ArrayType) {
-        auto Array_T=std::dynamic_pointer_cast<ArrayType>(node->realType);
-        auto T=Array_T->length->realType;
-        auto E=Array_T->length->eval;
-        if (T->typeKind!=TypeName::BasicType) {
-            throw std::runtime_error("SemanticCheck::visit:array length is not an integer");
-        }
-        auto Basic_T=std::dynamic_pointer_cast<BasicType>(T);
-        if (!E.has_value()||(Basic_T->typeKind!=TypeName::Unit&&Basic_T->typeKind!=TypeName::Usize&&Basic_T->typeKind!=TypeName::Int)) {
-            throw std::runtime_error("SemanticCheck::visit: array length is not a usize type");
-        }
+    if (node->realType->typeKind!=TypeName::TypeType) {
+        throw std::runtime_error("SemanticCheck::visit: where is the type of the type???");
+    }
+    auto noder=node->realType->typePtr;
+    if (noder->typeKind==TypeName::IdentifierType) {
+        //TODO
+    }else if (noder->typeKind==TypeName::ArrayType) {
+        auto Array_T=std::dynamic_pointer_cast<ArrayType>(noder);
+        Array_T->accept(*this,node,l,f);
         //RustType中本身已经维护好了realType(parser中),所以我后续就没有什么必要再往后写了
     }
+}
+
+void SemanticCheck::TypeCheck(ArrayType *node,ASTNode * F, ASTNode *l, ASTNode *f) {
+    if (node->typePtr!=nullptr) {
+        node->typePtr->accept(*this,F,l,f);
+    }
+    node->length->scope=F->scope;
+    pre_processor(node->length.get(),F,l,f);
+    node->length->accept(*this,F,l,f);
+    auto T=node->length->realType;
+    auto E=node->length->eval;
+    if (T->typeKind!=TypeName::BasicType) {
+        throw std::runtime_error("SemanticCheck::visit:array length is not an integer");
+    }
+    auto Basic_T=std::dynamic_pointer_cast<BasicType>(T);
+    if (!E.has_value()||(Basic_T->kind!=TypeName::Unit&&Basic_T->kind!=TypeName::Usize&&Basic_T->kind!=TypeName::Int)) {
+        throw std::runtime_error("SemanticCheck::visit: array length is not a usize type");
+    }
+}
+
+void SemanticCheck::TypeCheck(IdentifierType *node,ASTNode * F, ASTNode *l, ASTNode *f) {
+
+}
+
+void SemanticCheck::TypeCheck(StructType *node,ASTNode * F, ASTNode *l, ASTNode *f) {
+
+}
+
+void SemanticCheck::TypeCheck(FunctionType *node,ASTNode * F, ASTNode *l, ASTNode *f) {
+
+}
+
+void SemanticCheck::TypeCheck(BasicType *node,ASTNode * F, ASTNode *l, ASTNode *f) {
+
+}
+
+void SemanticCheck::TypeCheck(SelfType *node,ASTNode * F, ASTNode *l, ASTNode *f) {
+
 }
 
 void SemanticCheck::loadBuiltin(ASTNode* node) {

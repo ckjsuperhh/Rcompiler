@@ -9,7 +9,9 @@
 #include <string>
 #include <unordered_map>
 
+#include "AST_node.h"
 
+struct SelfType;
 struct LoopExpr;
 struct ASTNode;
 struct Expr;
@@ -103,6 +105,18 @@ public:
 
     void visit(Program *node,ASTNode* F,ASTNode* l,ASTNode* f);
     void visit(RustType *node,ASTNode *F,ASTNode *l,ASTNode* f);
+
+    void TypeCheck(ArrayType *node, ASTNode *F, ASTNode *l, ASTNode *f);
+
+    void TypeCheck(BasicType *node, ASTNode *F, ASTNode *l, ASTNode *f);
+
+    void TypeCheck(SelfType *node, ASTNode *F, ASTNode *l, ASTNode *f);
+
+    void TypeCheck(FunctionType *node, ASTNode *F, ASTNode *l, ASTNode *f);
+
+    void TypeCheck(StructType *node, ASTNode *F, ASTNode *l, ASTNode *f);
+
+    void TypeCheck(IdentifierType *node, ASTNode *F, ASTNode *l, ASTNode *f);
 
     void loadBuiltin(ASTNode *node);
 

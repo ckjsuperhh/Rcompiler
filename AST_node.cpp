@@ -171,7 +171,7 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
 
     // 数组元素类型（Type* 子节点，构造函数已确保非空）
     children.emplace_back("array_element_type:");
-    children.emplace_back(elementType.get());
+    children.emplace_back(typePtr.get());
 
     // 数组长度表达式（Expr* 子节点，可能为常量表达式如 10，或变量表达式）
     if (length) {
@@ -257,20 +257,20 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
     return children;
 }
 // LiteralExpr 类的get_children实现
-// 包含字符串值value和类型信息exprType
+// 包含字符串值value和类型信息realType
 [[nodiscard]] std::vector<Element> LiteralExpr::get_children() const  {
     std::vector<Element> children;
     // 添加值信息（作为字符串元素）
     children.emplace_back("value: " + value);
     // 添加类型信息（如果存在）
-    if (exprType) {
-        children.emplace_back(exprType.get());
+    if (realType) {
+        children.emplace_back(realType.get());
     }
     return children;
 }
 
 // ArrayInitExpr 类的get_children实现
-// 包含多个元素表达式elements和类型信息exprType
+// 包含多个元素表达式elements和类型信息realType
 [[nodiscard]] std::vector<Element> ArrayInitExpr::get_children() const  {
     std::vector<Element> children;
     // 先添加数组元素数量信息
@@ -284,14 +284,14 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         }
     }
     // 添加数组类型信息（如果存在）
-    if (exprType) {
-        children.emplace_back(exprType.get());
+    if (realType) {
+        children.emplace_back(realType.get());
     }
     return children;
 }
 
 // ArraySimplifiedExpr 类的get_children实现
-// 包含元素表达式element、长度表达式length和类型信息exprType
+// 包含元素表达式element、长度表达式length和类型信息realType
 [[nodiscard]] std::vector<Element> ArraySimplifiedExpr::get_children() const  {
     std::vector<Element> children;
     // 添加元素表达式（ASTNode子节点）
@@ -309,9 +309,9 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back("length: null");
     }
     // 添加数组类型信息（如果存在）
-    if (exprType) {
+    if (realType) {
         children.emplace_back("type:");
-        children.emplace_back(exprType.get());
+        children.emplace_back(realType.get());
     }
     return children;
 }
@@ -334,9 +334,9 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back("index: null");
     }
     // 添加类型信息
-    if (exprType) {
+    if (realType) {
         children.emplace_back("type:");
-        children.emplace_back(exprType.get());
+        children.emplace_back(realType.get());
     }
     return children;
 }
@@ -366,9 +366,9 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back("right: null");
     }
     // 添加类型信息
-    if (exprType) {
+    if (realType) {
         children.emplace_back("type:");
-        children.emplace_back(exprType.get());
+        children.emplace_back(realType.get());
     }
     return children;
 }
@@ -386,9 +386,9 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back("operand: null");
     }
     // 添加类型信息
-    if (exprType) {
+    if (realType) {
         children.emplace_back("type:");
-        children.emplace_back(exprType.get());
+        children.emplace_back(realType.get());
     }
     return children;
 }
@@ -402,9 +402,9 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back("segment: " + seg);
     }
     // 添加类型信息
-    if (exprType) {
+    if (realType) {
         children.emplace_back("type:");
-        children.emplace_back(exprType.get());
+        children.emplace_back(realType.get());
     }
     return children;
 }
@@ -429,9 +429,9 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         }
     }
     // 添加类型信息
-    if (exprType) {
+    if (realType) {
         children.emplace_back("type:");
-        children.emplace_back(exprType.get());
+        children.emplace_back(realType.get());
     }
     return children;
 }
@@ -454,9 +454,9 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back("field: null");
     }
     // 添加类型信息
-    if (exprType) {
+    if (realType) {
         children.emplace_back("type:");
-        children.emplace_back(exprType.get());
+        children.emplace_back(realType.get());
     }
     return children;
 }
@@ -478,9 +478,9 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         }
     }
     // 添加类型信息
-    if (exprType) {
+    if (realType) {
         children.emplace_back("type:");
-        children.emplace_back(exprType.get());
+        children.emplace_back(realType.get());
     }
     return children;
 }
@@ -514,9 +514,9 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
     }
 
     // 添加类型信息
-    if (exprType) {
+    if (realType) {
         children.emplace_back("type:");
-        children.emplace_back(exprType.get());
+        children.emplace_back(realType.get());
     }
 
     return children;
@@ -535,9 +535,9 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
     }
 
     // 添加类型信息
-    if (exprType) {
+    if (realType) {
         children.emplace_back("type:");
-        children.emplace_back(exprType.get());
+        children.emplace_back(realType.get());
     }
 
     return children;
@@ -556,9 +556,9 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
     }
 
     // 添加类型信息
-    if (exprType) {
+    if (realType) {
         children.emplace_back("type:");
-        children.emplace_back(exprType.get());
+        children.emplace_back(realType.get());
     }
 
     return children;
@@ -588,9 +588,9 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
     }
 
     // 添加类型信息
-    if (exprType) {
+    if (realType) {
         children.emplace_back("type:");
-        children.emplace_back(exprType.get());
+        children.emplace_back(realType.get());
     }
 
     return children;
@@ -615,9 +615,9 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
     }
 
     // 添加类型信息
-    if (exprType) {
+    if (realType) {
         children.emplace_back("type:");
-        children.emplace_back(exprType.get());
+        children.emplace_back(realType.get());
     }
 
     return children;
@@ -652,9 +652,9 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
             children.emplace_back("  app[" + std::to_string(i) + "]_variable: null");
         }
     }
-    if (exprType) {
+    if (realType) {
         children.emplace_back("type:");
-        children.emplace_back(exprType.get());
+        children.emplace_back(realType.get());
     }
     return children;
 }
@@ -678,9 +678,9 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
     } else {
         children.emplace_back("target_type: unknown");
     }
-    if (exprType) {
+    if (realType) {
         children.emplace_back("type:");
-        children.emplace_back(exprType.get());
+        children.emplace_back(realType.get());
     }
 
     return children;
@@ -699,9 +699,9 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
     }
 
     // 添加类型信息
-    if (exprType) {
+    if (realType) {
         children.emplace_back("type:");
-        children.emplace_back(exprType.get());
+        children.emplace_back(realType.get());
     }
 
     return children;
@@ -728,9 +728,9 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
     }
 
     // 添加类型信息
-    if (exprType) {
+    if (realType) {
         children.emplace_back("type:");
-        children.emplace_back(exprType.get());
+        children.emplace_back(realType.get());
     }
 
     return children;
@@ -998,4 +998,204 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
     }
 
     return children;
+}
+
+// 1. BasicType::accept
+void BasicType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    visitor.TypeCheck(this, F, l, f);
+}
+
+// 2. ArrayType::accept
+void ArrayType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    visitor.TypeCheck(this, F, l, f);
+}
+
+// 3. IdentifierType::accept
+void IdentifierType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    visitor.TypeCheck(this, F, l, f);
+}
+
+// 4. SelfType::accept
+void SelfType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    visitor.TypeCheck(this, F, l, f);
+}
+
+// 5. FunctionType::accept
+void FunctionType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    visitor.TypeCheck(this, F, l, f);
+}
+
+// 6. ErrorType::accept
+void ErrorType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    throw std::logic_error("ErrorType");
+}
+
+// 7. UnitType::accept
+void UnitType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    // 原代码为空实现，保持不变
+}
+
+// 8. NeverType::accept
+void NeverType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    // 原代码为空实现，保持不变
+}
+
+// 9. EnumType::accept
+void EnumType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    // 原代码为空实现，保持不变
+}
+
+// 10. StructType::accept
+void StructType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    // 原代码为空实现，保持不变
+}
+
+// 11. TypeType::accept（原代码为空实现，补充类外定义）
+void TypeType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    // 原代码为空实现，保持不变
+}
+
+// 1. RustType::accept
+void RustType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 2. LiteralExpr::accept
+void LiteralExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 3. ArrayInitExpr::accept
+void ArrayInitExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 4. ArraySimplifiedExpr::accept
+void ArraySimplifiedExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 5. ArrayAccessExpr::accept
+void ArrayAccessExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 6. UnitExpr::accept
+void UnitExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 7. BinaryExpr::accept
+void BinaryExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 8. UnaryExpr::accept
+void UnaryExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 9. PathExpr::accept
+void PathExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 10. CallExpr::accept
+void CallExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 11. FieldAccessExpr::accept
+void FieldAccessExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 12. BlockExpr::accept
+void BlockExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 13. IfExpr::accept
+void IfExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 14. ReturnExpr::accept
+void ReturnExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 15. GroupedExpr::accept
+void GroupedExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 16. AssignmentExpr::accept
+void AssignmentExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 17. StructExpr::accept
+void StructExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 18. AsExpr::accept
+void AsExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 19. ContinueExpr::accept
+void ContinueExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 20. BreakExpr::accept
+void BreakExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 21. LoopExpr::accept
+void LoopExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 22. WhileExpr::accept
+void WhileExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 23. ConstStmt::accept
+void ConstStmt::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 24. FnStmt::accept
+void FnStmt::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 25. StructStmt::accept
+void StructStmt::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 26. EnumStmt::accept
+void EnumStmt::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 27. InherentImplStmt::accept
+void InherentImplStmt::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 28. LetStmt::accept
+void LetStmt::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
+}
+
+// 29. Program::accept
+void Program::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    return visitor.visit(this, F, l, f);
 }

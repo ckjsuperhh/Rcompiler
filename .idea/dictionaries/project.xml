@@ -3,6 +3,7 @@
     <words>
       <w>cchar</w>
       <w>constnode</w>
+      <w>conststmts</w>
       <w>enumnode</w>
       <w>fnnode</w>
       <w>grandgrandson</w>

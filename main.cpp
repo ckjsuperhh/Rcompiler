@@ -11,28 +11,28 @@ int main() {
         return -1;
     }
     std::string input((std::istreambuf_iterator(file)),std::istreambuf_iterator<char>());
-    std::cerr<<input<<std::endl;
+    // std::cerr<<input<<std::endl;
     try {
         Tokenizer t(input);
         auto v=t.tokenize();
-        t.ShowOutput(v);
+        // t.ShowOutput(v);
         Parser p(v);
         auto root=p.parse();
         if (!root) {
             std::cerr<<"unable to parse the file"<<std::endl;
         }
-        std::vector<std::string> tree1 = root->showTree(0,true);
-        // 逐行打印
-        for (const std::string& line : tree1) {
-            std::cout << line << std::endl;
-        }
+        // std::vector<std::string> tree1 = root->showTree(0,true);
+        // // 逐行打印
+        // for (const std::string& line : tree1) {
+        //     std::cout << line << std::endl;
+        // }
         SemanticCheck sc;
         sc.Analyze(root.get());
-        std::vector<std::string> tree2 = root->showTree(0,true);
-        // 逐行打印
-        for (const std::string& line : tree2) {
-            std::cout << line << std::endl;
-        }
+        // std::vector<std::string> tree2 = root->showTree(0,true);
+        // // 逐行打印
+        // for (const std::string& line : tree2) {
+        //     std::cout << line << std::endl;
+        // }
     }catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
         exit(-1);

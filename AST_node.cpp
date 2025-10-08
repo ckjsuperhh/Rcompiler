@@ -373,6 +373,16 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
     return children;
 }
 
+[[nodiscard]] std::vector<Element> UnderscoreExpr::get_children() const {
+    std::vector<Element> children;
+    children.emplace_back("underscore_expr:_");
+    if (realType) {
+        children.emplace_back("type:");
+        children.emplace_back(realType.get());
+    }
+    return children;
+}
+
 // UnaryExpr 类的get_children实现
 [[nodiscard]] std::vector<Element> UnaryExpr::get_children() const  {
     std::vector<Element> children;
@@ -1089,6 +1099,11 @@ void UnitExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f
 void BinaryExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
     return visitor.visit(this, F, l, f);
 }
+
+void UnderscoreExpr::accept(SemanticCheck &visitor, ASTNode *F, ASTNode *l, ASTNode *f) {
+
+}
+
 
 // 8. UnaryExpr::accept
 void UnaryExpr::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {

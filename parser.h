@@ -13,6 +13,7 @@
 #include <unordered_map>
 
 #include "AST_node.h"
+#include "AST_node.h"
 
 enum class Preference {
     LOWEST,
@@ -124,7 +125,7 @@ static std::string get_type_str(TokenType type) {
 }
 
     void consume() {
-        std::cerr<<"Consuming:("<<get_type_str(current_token.type)<<")"<<current_token.value<<std::endl;
+        // std::cerr<<"Consuming:("<<get_type_str(current_token.type)<<")"<<current_token.value<<std::endl;
         current_token = lexer[++current_pos];
     }
     void expect(const TokenType expected_type) const {
@@ -182,7 +183,7 @@ static std::string get_type_str(TokenType type) {
             rules[static_cast<size_t>(TokenType::Break)].prefix = &Parser::parse_break;
             rules[static_cast<size_t>(TokenType::Continue)].prefix = &Parser::parse_continue;
             rules[static_cast<size_t>(TokenType::Loop)].prefix = &Parser::parse_loop;
-
+            rules[static_cast<size_t>(TokenType::Underscore)].prefix= &Parser::parse_underscore;
 
 
             rules[static_cast<size_t>(TokenType::LParen)].infix = &Parser::parse_call;
@@ -256,6 +257,11 @@ static std::string get_type_str(TokenType type) {
             left = (this->*infix)(std::move(left));
         }
         return left;
+    }
+
+    std::shared_ptr<Expr> parse_underscore() {
+        consume();
+        return std::make_shared<UnderscoreExpr>();
     }
 
     std::shared_ptr<Expr> parse_as(std::shared_ptr<Expr> left) {
@@ -440,7 +446,6 @@ static std::string get_type_str(TokenType type) {
             expect(TokenType::RParen);
             consume();
         }
-        consume();
         return std::make_shared<CallExpr>(std::move(left),std::move(args));
     }
 
@@ -535,7 +540,7 @@ static std::string get_type_str(TokenType type) {
         std::vector<std::pair<std::shared_ptr<ASTNode>,bool>> elements;
         do {
             auto st=parse_statement();
-            bool has_semicolon=match(TokenType::Semicolon);
+            bool has_semicolon=(match(TokenType::Semicolon)||st->get_type()==TypeName::ConstStmt);
             elements.emplace_back(st,has_semicolon);
         }while (!match(TokenType::RBrace));
         return std::make_shared<BlockExpr>(std::move(elements));

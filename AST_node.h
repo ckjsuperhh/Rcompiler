@@ -547,6 +547,12 @@ struct BinaryExpr : Expr {
     [[nodiscard]] std::vector<Element> get_children() const override;
 };
 
+struct UnderscoreExpr:Expr {
+    UnderscoreExpr():Expr(TypeName::UnderscoreExpr,std::make_shared<NeverType>()){}
+    [[nodiscard]] std::vector<Element> get_children() const override;
+    void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
+};
+
 struct UnaryExpr : Expr {
     std::string op;
     std::shared_ptr<Expr> right;
@@ -731,6 +737,9 @@ struct FnStmt : Stmt {
     FnStmt(std::string n, std::vector<Param> p, std::shared_ptr<RustType> r, std::shared_ptr<Expr> b):
         Stmt(TypeName::FnStmt), name(std::move(n)), parameters(std::move(p)),
         return_type(std::move(r)), body(std::move(b)) {
+        if (!return_type) {
+            return_type=std::make_shared<RustType>(std::make_shared<TypeType>(std::make_shared<UnitType>()));
+        }
     }
     ~FnStmt() override = default;
     

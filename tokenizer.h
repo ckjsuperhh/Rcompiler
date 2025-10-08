@@ -321,6 +321,7 @@
             boost::regex keyword(R"(^\b(crate|mod|move|ref|self|Self|super|type|use|where|try|gen)\b)");
             boost::regex basic(R"(^\b(i32|u32|isize|usize|String|bool|char)\b)");
             boost::regex sstring("\"[a-zA-Z0-9]*\"");
+            boost::regex underscore(R"(^\_)");;
             boost::regex bbool(R"(^\b(false|true)\b)");
             boost::regex sself(R"(^\b(self)\b)");
             boost::regex SSelf(R"(^\b(Self)\b)");
@@ -332,7 +333,7 @@
             boost::regex iin(R"(^\b(in)\b)");
             boost::regex iimpl(R"(^\b(impl)\b)");
             boost::regex eenum(R"(^\b(enum)\b)");
-            boost::regex ccontinue(R"(^\b()\b)");
+            boost::regex ccontinue(R"(^\b(continue)\b)");
             boost::regex cconst(R"(^\b(const)\b)");
             boost::regex bbreak(R"(^\b(break)\b)");
             boost::regex iif(R"(^\b(if)\b)");
@@ -369,6 +370,9 @@
             boost::regex unit(R"(^\(\)$)");
             boost::smatch match;
             std::vector<Token> waiting_tokens;
+            if (boost::regex_search(start, end, match,underscore, boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::Underscore, match.str());
+            }
             if (boost::regex_search(start, end, match,basic, boost::match_continuous)) {
                 waiting_tokens.emplace_back(TokenType::Basic, match.str());
             }

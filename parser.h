@@ -19,8 +19,8 @@ enum class Preference {
     LOWEST,
     ASSIGNMENT, // =
     AS,
-    OR, // ||
-    AND, // &&
+    OROR, // ||
+    ANDAND, // &&
     EQUALITY, // ==, !=
     XOR, // ^  （新增：异或）
     COMPARISON = 6, // <, >, <=, >=
@@ -102,14 +102,11 @@ static std::string get_type_str(TokenType type) {
         {TokenType::Union, "Union"},
         {TokenType::Const, "Const"},
         {TokenType::Static, "Static"},
-        {TokenType::Unsafe, "Unsafe"},
-        {TokenType::Async, "Async"},
         {TokenType::Let, "Let"},
         {TokenType::Mut, "Mut"},
         {TokenType::Fn, "Fn"},
         {TokenType::Trait, "Trait"},
         {TokenType::Impl, "Impl"},
-        {TokenType::Label, "Label"},
 
         // 特殊类型
         {TokenType::Whitespace, "Whitespace"},
@@ -183,6 +180,7 @@ static std::string get_type_str(TokenType type) {
             rules[static_cast<size_t>(TokenType::Break)].prefix = &Parser::parse_break;
             rules[static_cast<size_t>(TokenType::Continue)].prefix = &Parser::parse_continue;
             rules[static_cast<size_t>(TokenType::Loop)].prefix = &Parser::parse_loop;
+            rules[static_cast<size_t>(TokenType::If)].prefix = &Parser::parse_if;
             rules[static_cast<size_t>(TokenType::Underscore)].prefix= &Parser::parse_underscore;
 
 
@@ -230,6 +228,10 @@ static std::string get_type_str(TokenType type) {
             rules[static_cast<size_t>(TokenType::StarEqual)].precedence=Preference::ASSIGNMENT;
             rules[static_cast<size_t>(TokenType::SlashEqual)].infix = &Parser::parse_assignment;
             rules[static_cast<size_t>(TokenType::SlashEqual)].precedence=Preference::ASSIGNMENT;
+            rules[static_cast<size_t>(TokenType::OrOr)].infix = &Parser::parse_binary;
+            rules[static_cast<size_t>(TokenType::OrOr)].precedence=Preference::OROR;
+            rules[static_cast<size_t>(TokenType::Andand)].infix = &Parser::parse_binary;
+            rules[static_cast<size_t>(TokenType::Andand)].precedence=Preference::ANDAND;
 
 
 
@@ -272,55 +274,76 @@ static std::string get_type_str(TokenType type) {
 
     std::shared_ptr<Expr> parse_binary(std::shared_ptr<Expr> left) {
         std::string op;
+        Preference min_precedence;
         switch (peek().type) {
             case TokenType::Plus:
                 op = "+";
+                min_precedence = Preference::TERM;
                 break;
                 case TokenType::Minus:
                 op = "-";
+                min_precedence = Preference::TERM;
                 break;
                 case TokenType::Star:
                 op = "*";
+                min_precedence = Preference::FACTOR;
                 break;
                 case TokenType::Slash:
                 op="/";
+                min_precedence = Preference::FACTOR;
                 break;
                 case TokenType::Mod:
                 op="%";
+                min_precedence = Preference::FACTOR;
                 break;
                 case TokenType::Greater:
                 op=">";
+                min_precedence = Preference::COMPARISON;
                 break;
                 case TokenType::GreaterEqual:
                 op=">=";
+                min_precedence = Preference::COMPARISON;
                 break;
                 case TokenType::Less:
                 op="<";
+                min_precedence = Preference::COMPARISON;
                 break;
                 case TokenType::LessEqual:
                 op="<=";
+                min_precedence = Preference::COMPARISON;
                 break;
                 case TokenType::Xor:
                 op="^";
+                min_precedence = Preference::XOR;
                 break;
                 case TokenType::EqEq:
                 op="==";
+                min_precedence = Preference::EQUALITY;
                 break;
                 case TokenType::NotEqual:
                 op="!=";
+                min_precedence = Preference::EQUALITY;
                 break;
-            default:
+            case TokenType::Andand:
+                op="&&";
+                min_precedence = Preference::ANDAND;
+                break;
+                case TokenType::OrOr:
+                op="||";
+                min_precedence = Preference::OROR;
+                break;
+                default:
                 throw std::runtime_error("Unexpected op");
         }
         consume();
-        auto right=parse_expression();
+        auto right=parse_expression(min_precedence);
         return std::make_shared<BinaryExpr>(left,op,right);
     }
 
     std::shared_ptr<Expr> parse_literal() {
         const auto &[type, value] = peek();
         consume();
-        TypeName t=TypeName::ErrorType;
+        TypeName t;
         switch (type) {
             case TokenType::Integer:
                 t=TypeName::Integer;//我决定到semantic里边再说
@@ -436,7 +459,7 @@ static std::string get_type_str(TokenType type) {
     std::shared_ptr<Expr> parse_call(std::shared_ptr<Expr> left) {
         consume();
         std::vector<std::shared_ptr<Expr> > args;
-        if (!check(TokenType::RParen)) {
+        if (!match(TokenType::RParen)) {
             do {
                 if (check(TokenType::RParen)) {
                     break;
@@ -941,6 +964,18 @@ static std::string get_type_str(TokenType type) {
         return std::make_shared<SelfType>();
     }
 
+    std::shared_ptr<Type> parse_andstr_type() {
+        consume();
+        return std::make_shared<AndStrType>();
+    }
+
+    std::shared_ptr<Type> parse_unit_type() {
+        consume();
+        expect(TokenType::RParen);
+        consume();
+        return std::make_shared<UnitType>();
+    }
+
     std::shared_ptr<Type> parse_type(bool inner=true) {
         bool is_and=false;
         bool is_mutable=false;
@@ -960,6 +995,12 @@ static std::string get_type_str(TokenType type) {
                 break;
             case TokenType::Self:
                 type= parse_Self_type();
+                break;
+            case TokenType::LParen:
+                type=parse_unit_type();
+                break;
+            case TokenType::AndStr:
+                type=parse_andstr_type();
                 break;
             default:
                 type= parse_basic_type();

@@ -80,7 +80,7 @@ struct SymbolEntry {
 struct SymbolTable {
         std::unordered_map<std::string,SymbolEntry>item_Table,type_Table;
         SymbolEntry lookup_t(std::string);
-        SymbolEntry lookup_i(std::string);
+        SymbolEntry lookup_i(std::string,ASTNode *);
 
         void setItem(std::string, SymbolEntry);
 

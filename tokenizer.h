@@ -40,6 +40,7 @@
         LessEqual, // <=
         GreaterEqual, // >=
         As,
+        OrOr,
 
         // 标点符号
         LParen, // (
@@ -75,19 +76,16 @@
         Union, // 原第一个版本的Union
         Const,
         Static, // 原第二个版本的Static
-        Unsafe,
-        Async,
         Let,
         Mut, // 可变性关键字
         Fn, // 函数关键字
         Trait, // 特性关键字
         Impl, // 实现关键字
-        Label, // 标签关键字
 
         // 特殊类型
         Whitespace, // 空白（原WHITESPACE）
         Invalid,// 无效 token（原INVALID）
-        Integer, EqEq, Mod, Unit , self, Self, Andand
+        Integer, EqEq, Mod, Unit , self, Self, Andand,AndStr
         , MinusEqual, SlashEqual,PlusEqual,StarEqual, Basic,Eof // 文件结束
 
 
@@ -198,8 +196,6 @@
             return "Const";
         case TokenType::Static:
             return "Static";
-        case TokenType::Unsafe:
-            return "Unsafe";
         case TokenType::Let:
             return "Let";
         case TokenType::Mut:
@@ -210,8 +206,6 @@
             return "Trait";
         case TokenType::Impl:
             return "Impl";
-        case TokenType::Label:
-            return "Label";
 
         // 特殊类型
         case TokenType::Whitespace:
@@ -365,11 +359,22 @@
             boost::regex rbracket(R"(^\])") ;
             boost::regex lbracket(R"(^\[)") ;
             boost::regex comma(R"(^,)") ;
-
+            boost::regex two_pipes(R"(\|\|)");
+            boost::regex oor(R"(\|)") ;
             boost::regex dot(R"(^\.)") ;
             boost::regex unit(R"(^\(\)$)");
+            boost::regex andstr(R"(&str)");
             boost::smatch match;
             std::vector<Token> waiting_tokens;
+            if (boost::regex_search(start, end, match,andstr, boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::AndStr, match.str());
+            }
+            if (boost::regex_search(start, end, match,oor, boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::Or, match.str());
+            }
+            if (boost::regex_search(start, end, match,two_pipes, boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::OrOr, match.str());
+            }
             if (boost::regex_search(start, end, match,underscore, boost::match_continuous)) {
                 waiting_tokens.emplace_back(TokenType::Underscore, match.str());
             }

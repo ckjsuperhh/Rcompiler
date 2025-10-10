@@ -67,6 +67,7 @@ enum class TypeName {
     ErrorType,
     Iint,
     Uint,
+    AndStrType,
     String,
     FunctionType,
     I32,
@@ -346,6 +347,19 @@ struct ErrorType : Type {
         return "ErrorType";
     }
 };
+
+struct AndStrType:Type {
+      explicit AndStrType():Type(TypeName::AndStrType){}
+    bool equals(const Type *other) const override {
+          return other->typeKind==TypeName::AndStrType;
+      }
+    [[nodiscard]] std::string toString() const override {
+          return "&str";
+      }
+    [[nodiscard]] std::vector<Element> get_children() const override;
+    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
+};
+
 
 struct UnitType : Type {
     explicit UnitType(): Type(TypeName::UnitType) {}

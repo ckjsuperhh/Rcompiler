@@ -28,11 +28,11 @@ int main() {
         // }
         SemanticCheck sc;
         sc.Analyze(root.get());
-        // std::vector<std::string> tree2 = root->showTree(0,true);
-        // // 逐行打印
-        // for (const std::string& line : tree2) {
-        //     std::cout << line << std::endl;
-        // }
+        std::vector<std::string> tree2 = root->showTree(0,true);
+        // 逐行打印
+        for (const std::string& line : tree2) {
+            std::cout << line << std::endl;
+        }
     }catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
         exit(-1);

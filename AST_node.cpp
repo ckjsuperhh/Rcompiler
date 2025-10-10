@@ -34,6 +34,7 @@ std::string get_node_type_str(TypeName type) {
         {TypeName::selfType, "selfType"},
         {TypeName::SelfType, "SelfType"},
         {TypeName::ArrayAccessType, "ArrayAccessType"},
+        {TypeName::RustType, "RustType"},
 
         // 表达式
         {TypeName::LiteralExpr, "LiteralExpr"},
@@ -256,6 +257,20 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
 
     return children;
 }
+
+[[nodiscard]] std::vector<Element> AndStrType::get_children() const  {
+    std::vector<Element> children;
+
+    // 添加类型标识（特有信息）
+    children.emplace_back("and_str_type: &str");
+
+    // 保留 Type 基类成员标记（兼容性）
+    children.emplace_back("is_mutable: false");  // &str 类型默认不可变
+    children.emplace_back("is_reference: true"); // &str 本质是引用类型
+
+    return children;
+}
+
 // LiteralExpr 类的get_children实现
 // 包含字符串值value和类型信息realType
 [[nodiscard]] std::vector<Element> LiteralExpr::get_children() const  {
@@ -854,44 +869,6 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
     return children;
 }
 
-// // 5. TraitStmt 类实现
-// [[nodiscard]] std::vector<Element> TraitStmt::get_children() const  {
-//     std::vector<Element> children;
-//
-//     // Trait 名（字符串属性）
-//     children.emplace_back("trait_name: " + name);
-//
-//     // Trait 中的函数列表（pair<FnStmt*, bool>，bool 通常表示是否为默认实现）
-//     children.emplace_back("trait_fns(count: " + std::to_string(fns.size()) + "):");
-//     for (size_t i = 0; i < fns.size(); ++i) {
-//         const auto& fn_pair = fns[i];
-//         // 标记是否为默认实现
-//         children.emplace_back("  fn[" + std::to_string(i) + "] (is_default: " + (fn_pair.second ? "true" : "false") + "):");
-//         // 函数节点（FnStmt* 子节点）
-//         if (fn_pair.first) {
-//             children.emplace_back(fn_pair.first.get());
-//         } else {
-//             children.emplace_back("  fn[" + std::to_string(i) + "_body: null");
-//         }
-//     }
-//
-//     // Trait 中的常量列表（pair<ConstStmt*, bool>）
-//     children.emplace_back("trait_consts(count: " + std::to_string(cons.size()) + "):");
-//     for (size_t i = 0; i < cons.size(); ++i) {
-//         const auto& const_pair = cons[i];
-//         // 标记是否为默认值
-//         children.emplace_back("  const[" + std::to_string(i) + "] (is_default: " + (const_pair.second ? "true" : "false") + "):");
-//         // 常量节点（ConstStmt* 子节点）
-//         if (const_pair.first) {
-//             children.emplace_back(const_pair.first.get());
-//         } else {
-//             children.emplace_back("  const[" + std::to_string(i) + "_body: null");
-//         }
-//     }
-//
-//     return children;
-// }
-
 // 6. InherentImplStmt 类实现
 [[nodiscard]] std::vector<Element> InherentImplStmt::get_children() const  {
     std::vector<Element> children;
@@ -1057,6 +1034,10 @@ void EnumType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f
 
 // 10. StructType::accept
 void StructType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+    // 原代码为空实现，保持不变
+}
+
+void AndStrType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
     // 原代码为空实现，保持不变
 }
 

@@ -314,7 +314,7 @@
         Token next_token() {
             boost::regex keyword(R"(^\b(crate|mod|move|ref|self|Self|super|type|use|where|try|gen)\b)");
             boost::regex basic(R"(^\b(i32|u32|isize|usize|String|bool|char)\b)");
-            boost::regex sstring("\"[a-zA-Z0-9]*\"");
+            boost::regex sstring(R"("[a-zA-Z0-9 ]*")");
             boost::regex underscore(R"(^\_)");;
             boost::regex bbool(R"(^\b(false|true)\b)");
             boost::regex sself(R"(^\b(self)\b)");

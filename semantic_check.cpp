@@ -180,7 +180,12 @@ void SemanticCheck::resolveDependency(ASTNode *node, std::shared_ptr<Type> SelfT
             }
         }
         for (const auto &child: originalChildren) {
-            if (!is_Item(child.get()) && child->node_type != TypeName::InherentImplStmt) {
+            if (child->node_type == TypeName::FnStmt) {
+                ProgramNode->statements.push_back(child);
+            }
+        }
+        for (const auto &child: originalChildren) {
+            if (!is_Item(child.get()) && child->node_type != TypeName::InherentImplStmt&&child->node_type !=TypeName::FnStmt) {
                 ProgramNode->statements.push_back(child);
             }
         }
@@ -207,7 +212,12 @@ void SemanticCheck::resolveDependency(ASTNode *node, std::shared_ptr<Type> SelfT
             }
         }
         for (const auto &child: originalChildren) {
-            if (!is_Item(child.first.get()) && child.first->node_type != TypeName::InherentImplStmt) {
+            if (child.first->node_type == TypeName::FnStmt) {
+                BlockNode->statements.push_back(child);
+            }
+        }
+        for (const auto &child: originalChildren) {
+            if (!is_Item(child.first.get()) && child.first->node_type != TypeName::InherentImplStmt&&child.first->node_type != TypeName::FnStmt) {
                 BlockNode->statements.push_back(child);
             }
         }
@@ -559,6 +569,9 @@ void SemanticCheck::is_AllDerivable(std::shared_ptr<Type> &T1, std::shared_ptr<T
     if (T1->typeKind==TypeName::UnitType&&T0->typeKind==TypeName::UnitType) {
         return;
     }
+    if (T1->typeKind==TypeName::NeverType&&T0->typeKind==TypeName::NeverType) {
+        return;
+    }
     if (T1->typeKind == TypeName::VersatileType) {
         T1 = std::move(T0);
         return;
@@ -655,9 +668,9 @@ void SemanticCheck::visit(IfExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
     } else {
         auto T0 = node->then_branch->realType;
         auto T1 = node->else_branch->realType;
-        if (T0->typeKind != TypeName::NeverType) {
+        if (T0->typeKind == TypeName::NeverType) {
             T0 = T1;
-        } else if (T1->typeKind != TypeName::NeverType) {
+        } else if (T1->typeKind == TypeName::NeverType) {
             T1 = T0;
         }
         is_AllDerivable(T0, T1);
@@ -717,6 +730,7 @@ void SemanticCheck::visit(FnStmt *node, ASTNode *F, ASTNode *l, ASTNode *f) {
     auto T0 = TypeToItem(node->return_type->realType);
     auto T1 = node->body->realType;
     is_StrongDerivable(T1, T0);
+    node->realType = std::make_shared<UnitType>();
 }
 
 void SemanticCheck::visit(Program *node, ASTNode *F, ASTNode *l, ASTNode *f) {
@@ -769,9 +783,9 @@ void SemanticCheck::visit(BlockExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
             }
         }
         for (auto i = 0; i < node->statements.size() - 1; i++) {
-            if (!node->statements[i].second && node->statements[i].first->realType->typeKind != TypeName::UnitType) {
+            if (!node->statements[i].second && node->statements[i].first->realType->typeKind != TypeName::UnitType&&node->statements[i].first->realType->typeKind!=TypeName::NeverType) {
                 //没有分号但是返回值不是unit
-                throw std::runtime_error("SemanticCheck::visit: statement without a semicolon is not a unit");
+                throw std::runtime_error("SemanticCheck::visit: statement without a semicolon is not a unit or a !");
             }
         }
     }

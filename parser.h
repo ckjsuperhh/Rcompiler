@@ -22,13 +22,15 @@ enum class Preference {
     OROR, // ||
     ANDAND, // &&
     EQUALITY, // ==, !=
+    OR,
+    AND,
     XOR, // ^  （新增：异或）
-    COMPARISON = 6, // <, >, <=, >=
-    TERM = 8, // +, -
-    FACTOR = 9, // *, /, %
-    UNARY = 10, // !, - (一元)
-    CALL = 11, // 函数调用、方法调用
-    PRIMARY = 12 // 字面量、标识符、括号表达式等
+    COMPARISON , // <, >, <=, >=
+    TERM , // +, -
+    FACTOR , // *, /, %
+    UNARY , // !, - (一元)
+    CALL , // 函数调用、方法调用
+    PRIMARY  // 字面量、标识符、括号表达式等
 };
 
 class Parser {
@@ -122,7 +124,7 @@ static std::string get_type_str(TokenType type) {
 }
 
     void consume() {
-        // std::cerr<<"Consuming:("<<get_type_str(current_token.type)<<")"<<current_token.value<<std::endl;
+        std::cerr<<"Consuming:("<<get_type_str(current_token.type)<<")"<<current_token.value<<std::endl;
         current_token = lexer[++current_pos];
     }
     void expect(const TokenType expected_type) const {
@@ -210,6 +212,10 @@ static std::string get_type_str(TokenType type) {
             rules[static_cast<size_t>(TokenType::LessEqual)].precedence=Preference::COMPARISON;
             rules[static_cast<size_t>(TokenType::Xor)].infix = &Parser::parse_binary;
             rules[static_cast<size_t>(TokenType::Xor)].precedence=Preference::XOR;
+            rules[static_cast<size_t>(TokenType::Or)].infix = &Parser::parse_binary;
+            rules[static_cast<size_t>(TokenType::Or)].precedence=Preference::OR;
+            rules[static_cast<size_t>(TokenType::And)].infix = &Parser::parse_binary;
+            rules[static_cast<size_t>(TokenType::And)].precedence=Preference::AND;
             rules[static_cast<size_t>(TokenType::EqEq)].infix = &Parser::parse_binary;
             rules[static_cast<size_t>(TokenType::EqEq)].precedence=Preference::EQUALITY;
             rules[static_cast<size_t>(TokenType::NotEqual)].infix = &Parser::parse_binary;
@@ -331,6 +337,14 @@ static std::string get_type_str(TokenType type) {
                 case TokenType::OrOr:
                 op="||";
                 min_precedence = Preference::OROR;
+                break;
+                case TokenType::And:
+                op="&";
+                min_precedence = Preference::AND;
+                break;
+                case TokenType::Or:
+                op="|";
+                min_precedence = Preference::OR;
                 break;
                 default:
                 throw std::runtime_error("Unexpected op");
@@ -474,7 +488,7 @@ static std::string get_type_str(TokenType type) {
 
     std::shared_ptr<Expr> parse_field(std::shared_ptr<Expr> left) {
         consume();
-        auto right=parse_expression();
+        auto right=parse_expression(Preference::CALL);
         return std::make_shared<FieldAccessExpr>(std::move(left),std::move(right));
     }
 

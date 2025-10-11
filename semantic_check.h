@@ -79,8 +79,8 @@ struct SymbolEntry {
 };
 struct SymbolTable {
         std::unordered_map<std::string,SymbolEntry>item_Table,type_Table;
-        SymbolEntry lookup_t(std::string, ASTNode *F);
-        SymbolEntry lookup_i(std::string,ASTNode *);
+        SymbolEntry lookup_t(std::string stri, ASTNode *F=nullptr);
+        SymbolEntry lookup_i(std::string stri, ASTNode *F=nullptr);
 
         void setItem(std::string, SymbolEntry);
 

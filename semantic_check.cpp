@@ -418,6 +418,25 @@ void SemanticCheck::visit(PathExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
 }
 
 void SemanticCheck::visit(FieldAccessExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
+    if (node->struct_name->get_type()!=TypeName::PathExpr) {
+        throw std::runtime_error("struct name is not a path expression");
+    }
+    auto Pt=std::dynamic_pointer_cast<PathExpr>(node->struct_name);
+    auto Entry=node->scope.first->lookup_i(Pt->segments.back(),node->scope.second);
+    if (Entry.type->typeKind!=TypeName::StructType) {
+        throw std::runtime_error("unregistered struct");
+    }
+    auto T=std::dynamic_pointer_cast<StructType>(Entry.type);
+    if (node->field_expr->get_type()==TypeName::PathExpr) {
+        auto PP=std::dynamic_pointer_cast<PathExpr>(node->field_expr);
+        auto E=T->field->lookup_i("S-"+PP->segments.back());
+        if (E.type->typeKind==TypeName::ErrorType) {
+            throw std::runtime_error("non-existent field");
+        }
+        node->realType=E.type;
+    }else if (node->field_expr->get_type()==TypeName::CallExpr) {
+        //TODO
+    }
 }
 
 void SemanticCheck::visit(CallExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
@@ -504,6 +523,14 @@ void SemanticCheck::is_StrongDerivable(const std::shared_ptr<Type> &T1, const st
         }
         return;
     }
+    if (T1->typeKind == TypeName::StructType && T0->typeKind == TypeName::StructType) {
+        auto Struct_T1 = std::dynamic_pointer_cast<StructType>(T1);
+        auto Struct_T0 = std::dynamic_pointer_cast<StructType>(T0);
+        if (Struct_T0->structID!=Struct_T1->structID) {
+            throw std::runtime_error("structID is not the same!!!");
+        }
+        return;
+    }
     //TODO
     throw std::runtime_error("SemanticCheck::StrongDerivable: type mismatch");
 }
@@ -517,6 +544,7 @@ bool is_Number(const std::shared_ptr<Type> &T) {
            TypeName::Iint
            || T1->kind == TypeName::U32 || T1->kind == TypeName::I32 || T1->kind == TypeName::Isize;
 }
+
 
 bool is_NumberBool(const std::shared_ptr<Type> &T) {
     if (T->typeKind != TypeName::BasicType) {
@@ -792,6 +820,9 @@ void SemanticCheck::visit(BlockExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
             if (!node->statements[i].second && node->statements[i].first->realType->typeKind != TypeName::UnitType&&node->statements[i].first->realType->typeKind!=TypeName::NeverType) {
                 //没有分号但是返回值不是unit
                 throw std::runtime_error("SemanticCheck::visit: statement without a semicolon is not a unit or a !");
+            }
+            if (!node->statements[i].second && node->statements[i].first->get_type()==TypeName::LetStmt) {
+                throw std::runtime_error("SemanticCheck::visit: statement without a semicolon is not a let");
             }
         }
     }
@@ -1098,6 +1129,7 @@ void SemanticCheck::visit(StructExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) 
         }
         is_StrongDerivable(node->apps[i].variable->realType,TypeToItem(StType->fields[i].type));
     }
+    node->realType=TypeToItem(E.type);
 }
 
 void SemanticCheck::visit(AssignmentExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
@@ -1246,7 +1278,9 @@ void SemanticCheck::visit(RustType *node, ASTNode *F, ASTNode *l, ASTNode *f) {
     }
     auto noder = node->realType->typePtr;
     if (noder->typeKind == TypeName::IdentifierType) {
-        //TODO
+        auto T=std::dynamic_pointer_cast<IdentifierType>(noder);
+        auto Entry=node->scope.first->lookup_t(T->name,node->scope.second);
+        node->realType = Entry.type;
     } else if (noder->typeKind == TypeName::ArrayType) {
         auto Array_T = std::dynamic_pointer_cast<ArrayType>(noder);
         Array_T->accept(*this, node, l, f);

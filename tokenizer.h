@@ -345,7 +345,7 @@
             boost::regex ste(R"(^\*=)");
             boost::regex pe(R"(^\+=)");
             boost::regex me(R"(^\-=)");
-            boost::regex aand(R"(^&)");
+            boost::regex aand(R"(^\&)");
             boost::regex andand(R"(^&&)");
             boost::regex lparen(R"(^\()");
             boost::regex rparen(R"(^\))");
@@ -364,8 +364,12 @@
             boost::regex dot(R"(^\.)") ;
             boost::regex unit(R"(^\(\)$)");
             boost::regex andstr(R"(&str)");
+            boost::regex caret_re (R"(\^)");
             boost::smatch match;
             std::vector<Token> waiting_tokens;
+            if (boost::regex_search(start, end, match,caret_re, boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::Xor, match.str());
+            }
             if (boost::regex_search(start, end, match,andstr, boost::match_continuous)) {
                 waiting_tokens.emplace_back(TokenType::AndStr, match.str());
             }

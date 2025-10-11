@@ -104,6 +104,7 @@ enum class TypeName {
     VersatileType,
     Int,
     EnumType,
+    ReferenceType,
 };
 
 struct Type;
@@ -441,6 +442,19 @@ struct EnumType : Type {
     }
 };
 
+struct ReferenceType : Type {
+    explicit ReferenceType():Type(TypeName::ReferenceType){}
+    bool equals(const Type *other) const override {
+        return false;
+    }
+    [[nodiscard]] std::vector<Element> get_children() const override {
+        return  typePtr->get_children();
+    }
+    [[nodiscard]] std::string toString() const override {
+        return "ReferenceType";
+    }
+};
+
 struct StructType:Type {
     int structID;
     std::string structName;
@@ -476,7 +490,6 @@ struct StructType:Type {
         return "StructType { id: " + std::to_string(structID) +
                ", name: " + structName + ", field count: " + std::to_string(FieldNum) + " }";
     }
-
 };
 
 struct RustType : ASTNode {
@@ -537,8 +550,6 @@ struct ArrayAccessExpr : Expr {
     ArrayAccessExpr(std::shared_ptr<Expr> a, std::shared_ptr<Expr> i,std::shared_ptr<Type> t=nullptr):
     Expr(TypeName::ArrayAccessExpr,std::move(t)), array(std::move(a)), index(std::move(i)) {
     }
-    
-    
     [[nodiscard]] std::vector<Element> get_children() const override;
 };
 

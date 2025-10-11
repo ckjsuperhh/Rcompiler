@@ -72,6 +72,7 @@ struct InherentImplStmt;
 inline unsigned int structNum = 0;
 
 struct SymbolEntry {
+    ASTNode* f;
     std::shared_ptr<Type> type;
     std::any eval;
     bool is_mutable;

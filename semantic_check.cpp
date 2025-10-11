@@ -9,6 +9,7 @@
 #include <sys/wait.h>
 
 #include "AST_node.h"
+#include "AST_node.h"
 #include "tokenizer.h"
 
 
@@ -54,13 +55,13 @@ bool is_Item(const ASTNode *i) {
 std::vector<std::shared_ptr<ASTNode> > get_ASTNode_children(ASTNode *node) {
     std::vector<std::shared_ptr<ASTNode> > children;
     if (node->node_type == TypeName::Program) {
-        for (const auto ProgramNode = dynamic_cast<Program *>(node); auto &i: ProgramNode->statements) {
+        for (const auto ProgramNode = dynamic_cast<Program *>(node); auto &i : ProgramNode->statements) {
             children.push_back(i);
         }
         return children;
     }
     if (node->node_type == TypeName::BlockExpr) {
-        for (const auto BlockNode = dynamic_cast<BlockExpr *>(node); auto &i:
+        for (const auto BlockNode = dynamic_cast<BlockExpr *>(node); auto &i :
              BlockNode->statements | std::views::keys) {
             children.push_back(i);
         }
@@ -84,17 +85,21 @@ std::vector<std::shared_ptr<ASTNode> > get_ASTNode_children(ASTNode *node) {
 //     target->setItem(p.name,val);
 // }
 
+std::shared_ptr<StructType> clone(const std::shared_ptr<StructType>& t) {
+    return std::make_shared<StructType>(t->structID,t->structName,t->field,t->FieldNum,t->fields);
+}
+
 void SemanticCheck::resolveDependency(ASTNode *node, std::shared_ptr<Type> SelfType = nullptr) {
     std::vector<std::string> itemName;
     std::unordered_map<std::string, ASTNode *> itemTable;
     auto v = node->get_children();
     std::vector<ASTNode *> children;
-    for (const auto &child: v) {
+    for (const auto &child : v) {
         if (std::holds_alternative<ASTNode *>(child)) {
             children.push_back(std::get<ASTNode *>(child));
         }
     }
-    for (auto childnode: children) {
+    for (auto childnode : children) {
         childnode->scope = node->scope;
         if (is_Item(childnode)) {
             std::string item_name = getNodeIdentifier(childnode);
@@ -106,12 +111,12 @@ void SemanticCheck::resolveDependency(ASTNode *node, std::shared_ptr<Type> SelfT
     int sum = static_cast<int>(itemName.size());
     std::vector<std::vector<int> > DAG(sum);
     std::vector inDegree(sum, 0);
-    for (auto child: children) {
+    for (auto child : children) {
         if (is_Item(child)) {
             std::string curID = getNodeIdentifier(child);
             auto curIndex = std::ranges::lower_bound(itemName, curID) - itemName.begin();
             std::stack<ASTNode *> nodeStack;
-            for (auto grandson: child->get_children()) {
+            for (auto grandson : child->get_children()) {
                 if (std::holds_alternative<ASTNode *>(grandson)) {
                     nodeStack.push(std::get<ASTNode *>(grandson));
                 }
@@ -130,7 +135,7 @@ void SemanticCheck::resolveDependency(ASTNode *node, std::shared_ptr<Type> SelfT
                         inDegree[curIndex]++;
                     }
                 }
-                for (auto grandgrandson: curnode->get_children()) {
+                for (auto grandgrandson : curnode->get_children()) {
                     if (std::holds_alternative<ASTNode *>(grandgrandson)) {
                         nodeStack.push(std::get<ASTNode *>(grandgrandson));
                     }
@@ -149,7 +154,7 @@ void SemanticCheck::resolveDependency(ASTNode *node, std::shared_ptr<Type> SelfT
         int cur = none_InDegree.back();
         none_InDegree.pop_back();
         Topological_sorting.push_back(cur);
-        for (int dependence: DAG[cur]) {
+        for (int dependence : DAG[cur]) {
             inDegree[dependence]--;
             if (inDegree[dependence] == 0) {
                 none_InDegree.push_back(dependence);
@@ -164,31 +169,31 @@ void SemanticCheck::resolveDependency(ASTNode *node, std::shared_ptr<Type> SelfT
         auto ProgramNode = dynamic_cast<Program *>(node);
         auto originalChildren = ProgramNode->statements;
         ProgramNode->statements.clear();
-        for (auto idx: Topological_sorting) {
+        for (auto idx : Topological_sorting) {
             ASTNode *targetRawPtr = itemTable[itemName[idx]];
             auto it = std::find_if(originalChildren.begin(), originalChildren.end(),
-                                   [targetRawPtr](const std::shared_ptr<ASTNode> &ptr) {
-                                       return ptr.get() == targetRawPtr;
-                                   });
+            [targetRawPtr](const std::shared_ptr<ASTNode> &ptr) {
+                return ptr.get() == targetRawPtr;
+            });
             if (it != originalChildren.end()) {
                 ProgramNode->statements.push_back(*it); // 添加对应的智能指针
                 originalChildren.erase(it); // 从原始容器中移除，避免重复添加
             }
         }
-        for (const auto &child: originalChildren) {
+        for (const auto &child : originalChildren) {
             if (child->node_type == TypeName::InherentImplStmt) {
                 ProgramNode->statements.push_back(child);
             }
         }
-        for (const auto &child: originalChildren) {
+        for (const auto &child : originalChildren) {
             if (child->node_type == TypeName::FnStmt) {
-                auto Fnnode=std::dynamic_pointer_cast<FnStmt>(child);
+                auto Fnnode = std::dynamic_pointer_cast<FnStmt>(child);
                 Fnnode->is_crate = true;
                 ProgramNode->statements.push_back(child);
             }
         }
-        for (const auto &child: originalChildren) {
-            if (!is_Item(child.get()) && child->node_type != TypeName::InherentImplStmt&&child->node_type !=TypeName::FnStmt) {
+        for (const auto &child : originalChildren) {
+            if (!is_Item(child.get()) && child->node_type != TypeName::InherentImplStmt && child->node_type != TypeName::FnStmt) {
                 ProgramNode->statements.push_back(child);
             }
         }
@@ -196,38 +201,38 @@ void SemanticCheck::resolveDependency(ASTNode *node, std::shared_ptr<Type> SelfT
         auto BlockNode = dynamic_cast<BlockExpr *>(node);
         auto originalChildren = BlockNode->statements;
         BlockNode->statements.clear();
-        for (auto idx: Topological_sorting) {
+        for (auto idx : Topological_sorting) {
             ASTNode *targetRawPtr = itemTable[itemName[idx]];
             auto it = std::find_if(originalChildren.begin(), originalChildren.end(),
-                                   [targetRawPtr](const std::pair<std::shared_ptr<ASTNode>, bool> &pair) {
-                                       // 比较pair的first元素（智能指针）所管理的裸指针
-                                       return pair.first.get() == targetRawPtr;
-                                   });
+            [targetRawPtr](const std::pair<std::shared_ptr<ASTNode>, bool> &pair) {
+                // 比较pair的first元素（智能指针）所管理的裸指针
+                return pair.first.get() == targetRawPtr;
+            });
 
             if (it != originalChildren.end()) {
                 BlockNode->statements.push_back(*it); // 保留整个pair
                 originalChildren.erase(it); // 从原始容器移除，避免重复
             }
         }
-        for (const auto &child: originalChildren) {
+        for (const auto &child : originalChildren) {
             if (child.first->node_type == TypeName::InherentImplStmt) {
                 BlockNode->statements.push_back(child);
             }
         }
-        for (const auto &child: originalChildren) {
+        for (const auto &child : originalChildren) {
             if (child.first->node_type == TypeName::FnStmt) {
                 BlockNode->statements.push_back(child);
             }
         }
-        for (const auto &child: originalChildren) {
-            if (!is_Item(child.first.get()) && child.first->node_type != TypeName::InherentImplStmt&&child.first->node_type != TypeName::FnStmt) {
+        for (const auto &child : originalChildren) {
+            if (!is_Item(child.first.get()) && child.first->node_type != TypeName::InherentImplStmt && child.first->node_type != TypeName::FnStmt) {
                 BlockNode->statements.push_back(child);
             }
         }
     } else {
         throw std::runtime_error("solve dependency doesn't support anything but program and block!");
     }
-    for (const auto &child: get_ASTNode_children(node)) {
+    for (const auto &child : get_ASTNode_children(node)) {
         if (child->node_type == TypeName::ConstStmt) {
             auto Constnode = std::dynamic_pointer_cast<ConstStmt>(child);
             Constnode->type->scope = Constnode->scope;
@@ -242,19 +247,19 @@ void SemanticCheck::resolveDependency(ASTNode *node, std::shared_ptr<Type> SelfT
             if (!Constnode->expr->eval.has_value()) {
                 throw std::runtime_error("A constant should have value when compiling");
             }
-            SymbolEntry value = {T0, Constnode->expr->eval, false, true};
-            if (node->scope.first->lookup_i(Constnode->identifier,Constnode->scope.second).is_Global) {
+            SymbolEntry value = {nullptr,T0, Constnode->expr->eval, false, true};
+            if (node->scope.first->lookup_i(Constnode->identifier, Constnode->scope.second).is_Global) {
                 throw std::runtime_error("global variable should not shadow");
             }
             child->scope.first->setItem(Constnode->identifier, value);
         } else if (child->node_type == TypeName::FnStmt) {
             auto Fnnode = std::dynamic_pointer_cast<FnStmt>(child);//我不知道这个fn应该怎么设计scope!!!我的parameter怎么办?
             Fnnode->return_type->scope = Fnnode->scope;
-            pre_processor(Fnnode->return_type.get(), nullptr, nullptr, nullptr);
-            Fnnode->return_type->accept(*this, nullptr, nullptr, nullptr);
+            pre_processor(Fnnode->return_type.get(), Fnnode.get(), nullptr, nullptr);
+            Fnnode->return_type->accept(*this, Fnnode.get(), nullptr, nullptr);
 
             Fnnode->scope = std::make_pair(new SymbolTable(), node);
-            if (node->scope.first->lookup_i(Fnnode->name,Fnnode->scope.second).is_Global) {
+            if (node->scope.first->lookup_i(Fnnode->name, Fnnode->scope.second).is_Global) {
                 throw std::runtime_error("global variable should not shadow");
             }
             for (int i = 0; i < Fnnode->parameters.size(); i++) {
@@ -266,61 +271,130 @@ void SemanticCheck::resolveDependency(ASTNode *node, std::shared_ptr<Type> SelfT
                 if (id.type->is_mutable) {
                     is_mut = true;
                 }
-                if (id.type->typeKind != TypeName::SelfType) {
+                if (id.type->typeKind != TypeName::selfType) {
                     auto T0 = TypeToItem(id.type);
-                    if (T0->typeKind==TypeName::IdentifierType) {
-                        auto T=std::dynamic_pointer_cast<IdentifierType>(T0);
-                        auto Entry=node->scope.first->lookup_t(T->name,node->scope.second);
+                    if (T0->typeKind == TypeName::IdentifierType) {
+                        auto T = std::dynamic_pointer_cast<IdentifierType>(T0);
+                        auto Entry = node->scope.first->lookup_t(T->name, node->scope.second);
                         T0 = TypeToItem(Entry.type);
-                        id.type->typePtr=T0;
+                        id.type->typePtr = T0;
                     }
                     if (is_and) {
                         throw std::runtime_error("unsupported and type of parameter");
-                    }
+                    }//这是什么？
                     if (!is_mut) {
-                        child->scope.first->setItem(id.name, {T0, std::any(), false, false});
+                        child->scope.first->setItem(id.name, {nullptr,T0, std::any(), false, false});
                     } else {
-                        child->scope.first->setItem(id.name, {T0, std::any(), true, false});
+                        child->scope.first->setItem(id.name, {nullptr,T0, std::any(), true, false});
                     }
-                } else if (i || id.type->typeKind == TypeName::SelfType) {
+                } else if (i!=0 && id.type->typeKind == TypeName::selfType) {
                     throw std::runtime_error("self must be the first parameter");
                 } else {
-                    // assign_parameters(id,Fnnode->scope.first);
+                    throw std::runtime_error("unsupported and type of parameter");//我感觉fn就没有self吧，应该只需要在impl中写
                 }
-                //TODO
             }
-            node->scope.first->setItem(Fnnode->name,{std::make_shared<FunctionType>(Fnnode->parameters, Fnnode->return_type->realType), std::any(),
-                false, true});
+            node->scope.first->setItem(Fnnode->name, {nullptr,std::make_shared<FunctionType>(Fnnode->parameters, Fnnode->return_type->realType), std::any(),
+                                       false, true
+                                                     });
         } else if (child->node_type == TypeName::StructStmt) {
             auto Structnode = std::dynamic_pointer_cast<StructStmt>(child);
             auto T = std::make_shared<StructType>(++structNum, Structnode->name, new SymbolTable(),
-                                                  Structnode->fields.size(),Structnode->fields);
+                                                  Structnode->fields.size(), Structnode->fields);
             child->scope = std::make_pair(T->field, node);
             if (!Structnode->fields.empty()) {
                 for (auto i = 0; i < T->FieldNum; i++) {
                     auto T0 = TypeToItem(Structnode->fields[i].type);
-                    child->scope.first->setItem("S-" + Structnode->fields[i].name, {T0, std::any(), true, true});
+                    child->scope.first->setItem("S-" + Structnode->fields[i].name, {nullptr,T0, std::any(), true, true});
                 }
             }
-            if (node->scope.first->lookup_t(Structnode->name,node->scope.second).is_Global) {
+            if (node->scope.first->lookup_t(Structnode->name, node->scope.second).is_Global) {
                 throw std::runtime_error("global variable should not shadow");
             }
-            node->scope.first->setType(Structnode->name, {ItemToType(T), std::any(), false, true});
+            node->scope.first->setType(Structnode->name, {child.get(),ItemToType(T), std::any(), false, true});
         } else if (child->node_type == TypeName::InherentImplStmt) {
             auto Implnode = std::dynamic_pointer_cast<InherentImplStmt>(child);
-            auto T = TypeToItem(child->scope.first->lookup_t(Implnode->name, node->scope.second).type);
+            auto EEE=child->scope.first->lookup_t(Implnode->name, node->scope.second);
+            auto T = TypeToItem(EEE.type);
             if (T->typeKind != TypeName::StructType) {
                 throw std::runtime_error("impl only for a struct");
             }
-            child->scope = std::make_pair(std::dynamic_pointer_cast<StructType>(T)->field, node);
-            std::dynamic_pointer_cast<StructType>(T)->field->setType("Self", {ItemToType(T), std::any(), false, false});
-            for (const auto &i: Implnode->cons) {
+            auto Struct_T=std::dynamic_pointer_cast<StructType>(T);
+            Struct_T->field->setType("Self", {nullptr,ItemToType(T), std::any(), false, false});//处理Self
+            for (const auto &i : Implnode->cons) {
                 i.first->scope = child->scope;
-                resolveDependency(i.first.get(), T);
+                //copy the ConstStmt function
+                auto Constnode = std::dynamic_pointer_cast<ConstStmt>(i.first);
+                Constnode->type->scope = Constnode->scope;
+                pre_processor(Constnode->type.get(), i.first.get(), nullptr, nullptr);
+                Constnode->type->accept(*this, i.first.get(), nullptr, nullptr);
+                Constnode->expr->scope = Constnode->scope;
+                pre_processor(Constnode->expr.get(), i.first.get(), nullptr, nullptr);
+                Constnode->expr->accept(*this, i.first.get(), nullptr, nullptr);
+                auto T0 = TypeToItem(Constnode->type->realType);
+                auto T1 = Constnode->expr->realType;
+                is_StrongDerivable(T1, T0);
+                if (!Constnode->expr->eval.has_value()) {
+                    throw std::runtime_error("A constant should have value when compiling");
+                }
+                SymbolEntry value = {nullptr,T0, Constnode->expr->eval, false, true};
+                if (Struct_T->field->lookup_i(Constnode->identifier).is_Global) {
+                    throw std::runtime_error("global variable should not shadow");
+                }
+                Struct_T->field->setItem(Constnode->identifier, value);
             }
-            for (const auto &i: Implnode->fns) {
+            for (const auto &i : Implnode->fns) {
                 i.first->scope = child->scope;
-                resolveDependency(i.first.get(), T);
+                // copy the FnStmt function
+                auto Fnnode = std::dynamic_pointer_cast<FnStmt>(i.first);
+                Fnnode->return_type->scope = Fnnode->scope;
+                pre_processor(Fnnode->return_type.get(), Fnnode.get(), nullptr, nullptr);
+                Fnnode->return_type->accept(*this, Fnnode.get(), nullptr, nullptr);
+
+                Fnnode->scope = std::make_pair(new SymbolTable(), EEE.f);
+                if (Struct_T->field->lookup_i(Fnnode->name).is_Global) {
+                    throw std::runtime_error("global variable should not shadow");
+                }//我需要在struct的作用域中去寻找
+                for (int t = 0; t < Fnnode->parameters.size(); t++) {
+                    auto id = Fnnode->parameters[t];
+                    bool is_mut = false, is_and = false;
+                    if (id.type->is_and) {
+                        is_and = true;
+                    }
+                    if (id.type->is_mutable) {
+                        is_mut = true;
+                    }
+                    if (id.type->typeKind != TypeName::selfType) {
+                        auto T0 = TypeToItem(id.type);
+                        if (T0->typeKind == TypeName::IdentifierType) {
+                            auto ptr = std::dynamic_pointer_cast<IdentifierType>(T0);
+                            auto Entry = node->scope.first->lookup_t(ptr->name, node->scope.second);
+                            T0 = TypeToItem(Entry.type);
+                            id.type->typePtr = T0;
+                        }
+                        if (is_and) {
+                            throw std::runtime_error("unsupported and type of parameter");
+                        }
+                        if (!is_mut) {
+                            child->scope.first->setItem(id.name, {nullptr,T0, std::any(), false, false});
+                        } else {
+                            child->scope.first->setItem(id.name, {nullptr,T0, std::any(), true, false});
+                        }
+                    } else if (t!=0 && id.type->typeKind == TypeName::selfType) {
+                        throw std::runtime_error("self must be the first parameter");
+                    } else {//正确的self，我就应该创建一个实例item名字叫做"self"并且类型是现在这种
+                        auto tpr=clone(Struct_T);
+                        if (is_and) {
+                            tpr->is_and = true;
+                        }
+                        if (is_mut) {
+                            tpr->is_mutable = true;
+                        }
+                        Fnnode->scope.first->setItem("self", {nullptr,tpr,std::any(), is_mut, false});
+                        Fnnode->parameters[0].type=tpr;//把原本的self改成新的type
+                    }
+                }
+                Struct_T->field->setItem(Fnnode->name, {nullptr,std::make_shared<FunctionType>(Fnnode->parameters,
+                Fnnode->return_type->realType), std::any(),false, true});
             }
         } else if (child->node_type == TypeName::EnumStmt) {
             auto Enumnode = std::dynamic_pointer_cast<EnumStmt>(child);
@@ -335,10 +409,11 @@ void SemanticCheck::resolveDependency(ASTNode *node, std::shared_ptr<Type> SelfT
             if (node->scope.first->lookup_t(Enumnode->enum_name, node->scope.second).is_Global) {
                 throw std::runtime_error("global variable should not shadow");
             }
-            node->scope.first->setType(Enumnode->enum_name, {ItemToType(T), std::any(), false, true});
+            node->scope.first->setType(Enumnode->enum_name, {nullptr,ItemToType(T), std::any(), false, true});
         }
     }
 }
+
 
 
 void SemanticCheck::pre_processor(ASTNode *node, ASTNode *F, ASTNode *l, ASTNode *f) {
@@ -351,10 +426,12 @@ void SemanticCheck::pre_processor(ASTNode *node, ASTNode *F, ASTNode *l, ASTNode
     if (node->get_type() == TypeName::BlockExpr) {
         node->scope = std::make_pair(new SymbolTable(), F);//scope忘记回头指向前边了
     }
-    for (auto &i: v) {
-        if (std::holds_alternative<ASTNode *>(i)) {
-            auto *child =std::get<ASTNode *>(i);
-            child->scope = node->scope;
+    if (node->get_type()!=TypeName::InherentImplStmt) {
+        for (auto &i : v) {
+            if (std::holds_alternative<ASTNode *>(i)) {
+                auto *child = std::get<ASTNode *>(i);
+                child->scope = node->scope;
+            }
         }
     }
     if (node->get_type() == TypeName::Program || node->get_type() == TypeName::BlockExpr)
@@ -365,16 +442,19 @@ void SemanticCheck::pre_processor(ASTNode *node, ASTNode *F, ASTNode *l, ASTNode
     if (node->get_type() == TypeName::FnStmt) {
         f = node;
     }
-    for (auto i = 0; i < v.size(); i++) {
-        if (std::holds_alternative<ASTNode *>(v[i])) {
-            auto vi = std::get<ASTNode *>(v[i]);
-            node->Id = i;
-            pre_processor(vi, node, l, f);
-            vi->accept(*this, node, l, f);
-            node->is_hasBreak |= vi->is_hasBreak;
-            node->is_hasReturn |= vi->is_hasReturn;
+    if (node->get_type() != TypeName::FieldAccessExpr) {
+        for (auto i = 0; i < v.size(); i++) {
+            if (std::holds_alternative<ASTNode *>(v[i])) {
+                auto vi = std::get<ASTNode *>(v[i]);
+                node->Id = i;
+                pre_processor(vi, node, l, f);
+                vi->accept(*this, node, l, f);
+                node->is_hasBreak |= vi->is_hasBreak;
+                node->is_hasReturn |= vi->is_hasReturn;
+            }
         }
     }
+
     if (node->get_type() == TypeName::BreakExpr || node->get_type() == TypeName::ContinueExpr) {
         node->is_hasBreak = true;
     } else if (node->get_type() == TypeName::ReturnExpr) {
@@ -414,23 +494,23 @@ std::shared_ptr<Type> SemanticCheck::ItemToType(std::shared_ptr<Type> t) {
 
 void SemanticCheck::visit(PathExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
     if (node->segments.size() == 1) {
-        auto e = node->scope.first->lookup_i(node->segments[0],node->scope.second);
-        node->isMutable=e.is_mutable;
+        auto e = node->scope.first->lookup_i(node->segments[0], node->scope.second);
+        node->isMutable = e.is_mutable;
         node->realType = e.type;
         node->eval = e.eval;
     } else {
-        auto e = node->scope.first->lookup_t(node->segments[0],node->scope.second);
-        if (e.type->typeKind==TypeName::ErrorType) {
+        auto e = node->scope.first->lookup_t(node->segments[0], node->scope.second);
+        if (e.type->typeKind == TypeName::ErrorType) {
             throw std::runtime_error("SemanticCheck::visit: cannot find anything when checking the path expression");
         }
-        if (e.type->typeKind==TypeName::TypeType) {
-            auto EE=TypeToItem(e.type);
-            if (EE->typeKind==TypeName::EnumType) {
-                auto ET=std::dynamic_pointer_cast<EnumType>(EE);
+        if (e.type->typeKind == TypeName::TypeType) {
+            auto EE = TypeToItem(e.type);
+            if (EE->typeKind == TypeName::EnumType) {
+                auto ET = std::dynamic_pointer_cast<EnumType>(EE);
                 if (!ET->MemberNames->contains(node->segments[1])) {
                     throw std::runtime_error("not a name in the enum!");
                 }
-                node->realType=EE;
+                node->realType = EE;
             }
         }
 
@@ -438,45 +518,53 @@ void SemanticCheck::visit(PathExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
 }
 
 void SemanticCheck::visit(FieldAccessExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
-    if (node->struct_name->get_type()!=TypeName::PathExpr) {
+    if (node->struct_name->get_type() != TypeName::PathExpr) {
         throw std::runtime_error("struct name is not a path expression");
     }
-    auto Pt=std::dynamic_pointer_cast<PathExpr>(node->struct_name);
-    auto Entry=node->scope.first->lookup_i(Pt->segments.back(),node->scope.second);
-    if (Entry.type->typeKind!=TypeName::StructType) {
+    auto Pt = std::dynamic_pointer_cast<PathExpr>(node->struct_name);
+    SymbolEntry Entry;
+    if (Pt->segments.size()==1&&Pt->segments[0]=="self") {
+        Entry = node->scope.first->lookup_i("self", node->scope.second);
+    }else {
+        Entry = node->scope.first->lookup_t(Pt->segments.back(), node->scope.second);
+    }
+    if (Entry.type->typeKind != TypeName::StructType) {
         throw std::runtime_error("unregistered struct");
     }
-    auto T=std::dynamic_pointer_cast<StructType>(Entry.type);
-    if (node->field_expr->get_type()==TypeName::PathExpr) {
-        auto PP=std::dynamic_pointer_cast<PathExpr>(node->field_expr);
-        auto E=T->field->lookup_i("S-"+PP->segments.back());
-        if (E.type->typeKind==TypeName::ErrorType) {
+    auto T = std::dynamic_pointer_cast<StructType>(Entry.type);
+    if (T->is_mutable) {
+        node->isMutable = true;
+    }
+    if (node->field_expr->get_type() == TypeName::PathExpr) {
+        auto PP = std::dynamic_pointer_cast<PathExpr>(node->field_expr);
+        auto E = T->field->lookup_i("S-" + PP->segments.back());
+        if (E.type->typeKind == TypeName::ErrorType) {
             throw std::runtime_error("non-existent field");
         }
-        node->realType=E.type;
-    }else if (node->field_expr->get_type()==TypeName::CallExpr) {
+        node->realType = E.type;
+    } else if (node->field_expr->get_type() == TypeName::CallExpr) {
         //TODO
     }
 }
 
 void SemanticCheck::visit(CallExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
-    if (node->receiver->get_type()==TypeName::PathExpr) {
-        auto Pnode=std::dynamic_pointer_cast<PathExpr>(node->receiver);
-        auto Entry=node->scope.first->lookup_i(Pnode->segments.back(),node->scope.second);
-        if (Entry.type->typeKind==TypeName::ErrorType) {
-            throw std::runtime_error("there is no function named "+Pnode->segments.back()+" here!");
+    if (node->receiver->get_type() == TypeName::PathExpr) {
+        auto Pnode = std::dynamic_pointer_cast<PathExpr>(node->receiver);
+        auto Entry = node->scope.first->lookup_i(Pnode->segments.back(), node->scope.second);
+        if (Entry.type->typeKind == TypeName::ErrorType) {
+            throw std::runtime_error("there is no function named " + Pnode->segments.back() + " here!");
         }
-        if (Entry.type->typeKind!=TypeName::FunctionType) {
-            throw std::runtime_error("named "+Pnode->segments.back()+" is not a function!" );
+        if (Entry.type->typeKind != TypeName::FunctionType) {
+            throw std::runtime_error("named " + Pnode->segments.back() + " is not a function!" );
         }
-        auto FnType=std::dynamic_pointer_cast<FunctionType>(Entry.type);
-        if (FnType->parameters.size()!=node->arguments.size()) {
+        auto FnType = std::dynamic_pointer_cast<FunctionType>(Entry.type);
+        if (FnType->parameters.size() != node->arguments.size()) {
             throw std::runtime_error("there is wrong function parameter number");
         }
-        for (int i=0;i<FnType->parameters.size();i++) {
-            is_StrongDerivable(node->arguments[i]->realType,TypeToItem(FnType->parameters[i].type));
+        for (int i = 0; i < FnType->parameters.size(); i++) {
+            is_StrongDerivable(node->arguments[i]->realType, TypeToItem(FnType->parameters[i].type));
         }
-        node->realType=TypeToItem(FnType->return_type);
+        node->realType = TypeToItem(FnType->return_type);
     }
 }
 
@@ -498,9 +586,9 @@ void SemanticCheck::is_StrongDerivable(const std::shared_ptr<Type> &T1, const st
     if (T1->typeKind == TypeName::AndStrType && T0->typeKind == TypeName::AndStrType) {
         return;
     }
-    if (T1->typeKind==TypeName::BasicType) {
+    if (T1->typeKind == TypeName::BasicType) {
         auto Basic_T1 = std::dynamic_pointer_cast<BasicType>(T1);
-        if (Basic_T1->kind==TypeName::String&&T0->typeKind==TypeName::AndStrType) {
+        if (Basic_T1->kind == TypeName::String && T0->typeKind == TypeName::AndStrType) {
             return;
         }
     }
@@ -517,7 +605,7 @@ void SemanticCheck::is_StrongDerivable(const std::shared_ptr<Type> &T1, const st
         if (Basic_T1->kind == TypeName::Int && (Basic_T0->kind == TypeName::Iint || Basic_T0->kind == TypeName::Uint ||
                                                 Basic_T0->kind == TypeName::Uint || Basic_T0->kind == TypeName::I32 ||
                                                 Basic_T0->kind == TypeName::U32 || Basic_T0->kind == TypeName::Isize ||
-                                                Basic_T0->kind ==TypeName::Usize)) {
+                                                Basic_T0->kind == TypeName::Usize)) {
             return;
         }
         if (Basic_T1->kind == TypeName::Iint && (
@@ -546,7 +634,7 @@ void SemanticCheck::is_StrongDerivable(const std::shared_ptr<Type> &T1, const st
     if (T1->typeKind == TypeName::StructType && T0->typeKind == TypeName::StructType) {
         auto Struct_T1 = std::dynamic_pointer_cast<StructType>(T1);
         auto Struct_T0 = std::dynamic_pointer_cast<StructType>(T0);
-        if (Struct_T0->structID!=Struct_T1->structID) {
+        if (Struct_T0->structID != Struct_T1->structID) {
             throw std::runtime_error("structID is not the same!!!");
         }
         return;
@@ -554,7 +642,7 @@ void SemanticCheck::is_StrongDerivable(const std::shared_ptr<Type> &T1, const st
     if (T1->typeKind == TypeName::EnumType && T0->typeKind == TypeName::EnumType) {
         auto Enum_T1 = std::dynamic_pointer_cast<EnumType>(T1);
         auto Enum_T0 = std::dynamic_pointer_cast<EnumType>(T0);
-        if (Enum_T0->structID!=Enum_T1->structID) {
+        if (Enum_T0->structID != Enum_T1->structID) {
             throw std::runtime_error("structID is not the same!!!");
         }
         return;
@@ -592,43 +680,43 @@ bool is_Char(const std::shared_ptr<Type> &T) {
 
 
 void SemanticCheck::is_NumDerivable(std::shared_ptr<Type> &T1, std::shared_ptr<Type> &T0) {
-    if (!is_Number(T1)||!is_Number(T0)) {
+    if (!is_Number(T1) || !is_Number(T0)) {
         throw std::runtime_error("SemanticCheck::is_NumDerivable: not a number!!!");
     }
-    if (T1->typeKind != TypeName::BasicType||T0->typeKind != TypeName::BasicType) {
+    if (T1->typeKind != TypeName::BasicType || T0->typeKind != TypeName::BasicType) {
         throw std::runtime_error("SemanticCheck::is_NumDerivable: not a number!!!");
     }
     auto Basic_T1 = std::dynamic_pointer_cast<BasicType>(T1);
     auto Basic_T0 = std::dynamic_pointer_cast<BasicType>(T0);
-    if (Basic_T0->kind==TypeName::I32&&(Basic_T1->kind==TypeName::Iint||Basic_T1->kind==TypeName::Int)) {
-        Basic_T1->kind=TypeName::I32;
-    }else if (Basic_T0->kind==TypeName::U32&&(Basic_T1->kind==TypeName::Uint||Basic_T1->kind==TypeName::Int)) {
-        Basic_T1->kind=TypeName::U32;
-    }else if (Basic_T0->kind==TypeName::Isize&&(Basic_T1->kind==TypeName::Iint||Basic_T1->kind==TypeName::Int)) {
-        Basic_T1->kind=TypeName::Isize;
-    }else if (Basic_T0->kind==TypeName::Usize&&(Basic_T1->kind==TypeName::Uint||Basic_T1->kind==TypeName::Int)) {
-        Basic_T1->kind=TypeName::Usize;
-    }else if (Basic_T0->kind==TypeName::Iint&&Basic_T1->kind==TypeName::Int) {
-        Basic_T1->kind=TypeName::Iint;
-    }else if (Basic_T0->kind==TypeName::Iint&&(Basic_T1->kind==TypeName::I32||Basic_T0->kind==TypeName::Isize)) {
-        Basic_T0->kind=Basic_T1->kind;
-    }else if (Basic_T0->kind==TypeName::Uint&&Basic_T1->kind==TypeName::Int) {
-        Basic_T1->kind=TypeName::Uint;
-    }else if (Basic_T0->kind==TypeName::Uint&&(Basic_T1->kind==TypeName::U32||Basic_T0->kind==TypeName::Usize)) {
-        Basic_T0->kind=Basic_T1->kind;
-    }else if (Basic_T0->kind==TypeName::Int) {
-        Basic_T0->kind=Basic_T1->kind;
+    if (Basic_T0->kind == TypeName::I32 && (Basic_T1->kind == TypeName::Iint || Basic_T1->kind == TypeName::Int)) {
+        Basic_T1->kind = TypeName::I32;
+    } else if (Basic_T0->kind == TypeName::U32 && (Basic_T1->kind == TypeName::Uint || Basic_T1->kind == TypeName::Int)) {
+        Basic_T1->kind = TypeName::U32;
+    } else if (Basic_T0->kind == TypeName::Isize && (Basic_T1->kind == TypeName::Iint || Basic_T1->kind == TypeName::Int)) {
+        Basic_T1->kind = TypeName::Isize;
+    } else if (Basic_T0->kind == TypeName::Usize && (Basic_T1->kind == TypeName::Uint || Basic_T1->kind == TypeName::Int)) {
+        Basic_T1->kind = TypeName::Usize;
+    } else if (Basic_T0->kind == TypeName::Iint && Basic_T1->kind == TypeName::Int) {
+        Basic_T1->kind = TypeName::Iint;
+    } else if (Basic_T0->kind == TypeName::Iint && (Basic_T1->kind == TypeName::I32 || Basic_T0->kind == TypeName::Isize)) {
+        Basic_T0->kind = Basic_T1->kind;
+    } else if (Basic_T0->kind == TypeName::Uint && Basic_T1->kind == TypeName::Int) {
+        Basic_T1->kind = TypeName::Uint;
+    } else if (Basic_T0->kind == TypeName::Uint && (Basic_T1->kind == TypeName::U32 || Basic_T0->kind == TypeName::Usize)) {
+        Basic_T0->kind = Basic_T1->kind;
+    } else if (Basic_T0->kind == TypeName::Int) {
+        Basic_T0->kind = Basic_T1->kind;
     }
-    if (Basic_T0->kind!=Basic_T1->kind) {
+    if (Basic_T0->kind != Basic_T1->kind) {
         throw std::runtime_error("SemanticCheck::is_NumDerivable: incompatible numeric types!!!");
     }
 }
 
 void SemanticCheck::is_AllDerivable(std::shared_ptr<Type> &T1, std::shared_ptr<Type> &T0) {
-    if (T1->typeKind==TypeName::UnitType&&T0->typeKind==TypeName::UnitType) {
+    if (T1->typeKind == TypeName::UnitType && T0->typeKind == TypeName::UnitType) {
         return;
     }
-    if (T1->typeKind==TypeName::NeverType&&T0->typeKind==TypeName::NeverType) {
+    if (T1->typeKind == TypeName::NeverType && T0->typeKind == TypeName::NeverType) {
         return;
     }
     if (T1->typeKind == TypeName::VersatileType) {
@@ -648,9 +736,9 @@ void SemanticCheck::is_AllDerivable(std::shared_ptr<Type> &T1, std::shared_ptr<T
         if (!(Array_T0->length->eval.has_value() && Array_T1->length->eval.has_value())) {
             throw std::runtime_error("no length value!!");
         }
-        auto T0_length=std::any_cast<long long>(Array_T0->length->eval);
-        auto T1_length=std::any_cast<long long>(Array_T1->length->eval);
-        if (T0_length!=T1_length) {
+        auto T0_length = std::any_cast<long long>(Array_T0->length->eval);
+        auto T1_length = std::any_cast<long long>(Array_T1->length->eval);
+        if (T0_length != T1_length) {
             throw std::runtime_error("Array length mismatch");
         }
         is_AllDerivable(T1->typePtr, T0->typePtr);
@@ -659,7 +747,7 @@ void SemanticCheck::is_AllDerivable(std::shared_ptr<Type> &T1, std::shared_ptr<T
     if (T1->typeKind == TypeName::BasicType && T0->typeKind == TypeName::BasicType) {
         auto Basic_T1 = std::dynamic_pointer_cast<BasicType>(T1);
         auto Basic_T0 = std::dynamic_pointer_cast<BasicType>(T0);
-        if (Basic_T0->kind==Basic_T1->kind) {
+        if (Basic_T0->kind == Basic_T1->kind) {
             return;
         }
         is_NumDerivable(T1, T0);
@@ -668,9 +756,9 @@ void SemanticCheck::is_AllDerivable(std::shared_ptr<Type> &T1, std::shared_ptr<T
     throw std::runtime_error("SemanticCheck::Deriving: type mismatch");
 }
 
-const SymbolEntry null = {std::make_shared<ErrorType>(), std::any(), false, false};
+const SymbolEntry null = {nullptr,std::make_shared<ErrorType>(), std::any(), false, false};
 
-SymbolEntry SymbolTable::lookup_i(std::string stri,ASTNode* F) {
+SymbolEntry SymbolTable::lookup_i(std::string stri, ASTNode* F) {
     if (!item_Table.contains(stri)) {
         if (!F) {
             return null;
@@ -680,7 +768,7 @@ SymbolEntry SymbolTable::lookup_i(std::string stri,ASTNode* F) {
     return item_Table[stri];
 }
 
-SymbolEntry SymbolTable::lookup_t(std::string stri,ASTNode* F) {
+SymbolEntry SymbolTable::lookup_t(std::string stri, ASTNode* F) {
     if (!type_Table.contains(stri)) {
         if (!F) {
             return null;
@@ -699,7 +787,7 @@ void SymbolTable::setType(std::string stri, SymbolEntry ty) {
 }
 
 void SemanticCheck::visit(LetStmt *node, ASTNode *F, ASTNode *l, ASTNode *f) {
-    if (node->expr->get_type()==TypeName::UnderscoreExpr) {
+    if (node->expr->get_type() == TypeName::UnderscoreExpr) {
         throw std::runtime_error("underscore cannot act as a expr in the right of the LetStmt!!!");
     }
     auto T0 = TypeToItem(node->type->realType);
@@ -707,8 +795,8 @@ void SemanticCheck::visit(LetStmt *node, ASTNode *F, ASTNode *l, ASTNode *f) {
         auto T1 = node->expr->realType;
         is_StrongDerivable(T1, T0);
     }
-    SymbolEntry val = {T0, std::any(), node->is_mutable, false};//此处的is_mutable是指let中是否有mut这个关键词
-    if (node->scope.first->lookup_i(node->identifier,node->scope.second).is_Global) {
+    SymbolEntry val = {nullptr,T0, std::any(), node->is_mutable, false};//此处的is_mutable是指let中是否有mut这个关键词
+    if (node->scope.first->lookup_i(node->identifier, node->scope.second).is_Global) {
         throw std::runtime_error(
             "SemanticCheck::visit: global variable is not allowed to be the same name with let variable");
     }
@@ -720,8 +808,8 @@ void SemanticCheck::visit(IfExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
     if (node->condition->realType->typeKind != TypeName::BasicType) {
         throw std::runtime_error("SemanticCheck::visit: condition must be a boolean expression");
     }
-    auto Boolnode=std::dynamic_pointer_cast<BasicType>(node->condition->realType);
-    if (Boolnode->kind!=TypeName::Bool) {
+    auto Boolnode = std::dynamic_pointer_cast<BasicType>(node->condition->realType);
+    if (Boolnode->kind != TypeName::Bool) {
         throw std::runtime_error("SemanticCheck::visit: condition must be a boolean expression");
     }
     if (node->else_branch == nullptr) {
@@ -744,8 +832,8 @@ void SemanticCheck::visit(WhileExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
     if (node->condition->realType->typeKind != TypeName::BasicType) {
         throw std::runtime_error("SemanticCheck::visit: condition must be a boolean expression");
     }
-    auto Boolnode=std::dynamic_pointer_cast<BasicType>(node->condition->realType);
-    if (Boolnode->kind!=TypeName::Bool) {
+    auto Boolnode = std::dynamic_pointer_cast<BasicType>(node->condition->realType);
+    if (Boolnode->kind != TypeName::Bool) {
         throw std::runtime_error("SemanticCheck::visit: condition must be a boolean expression");
     }
     node->realType = std::make_shared<UnitType>();
@@ -839,35 +927,35 @@ void SemanticCheck::visit(BlockExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
             node->realType = node->statements.back().first->realType;
         } else {
             node->realType = std::make_shared<UnitType>();
-            for (auto &[child,semicolon]: node->statements) {
+            for (auto &[child, semicolon] : node->statements) {
                 if (child->realType->typeKind == TypeName::NeverType || child->is_hasBreak || child->is_hasReturn) {
                     node->realType = std::make_shared<NeverType>();
                 }
             }
         }
         for (auto i = 0; i < node->statements.size() - 1; i++) {
-            if (!node->statements[i].second && node->statements[i].first->realType->typeKind != TypeName::UnitType&&node->statements[i].first->realType->typeKind!=TypeName::NeverType) {
+            if (!node->statements[i].second && node->statements[i].first->realType->typeKind != TypeName::UnitType && node->statements[i].first->realType->typeKind != TypeName::NeverType) {
                 //没有分号但是返回值不是unit
                 throw std::runtime_error("SemanticCheck::visit: statement without a semicolon is not a unit or a !");
             }
-            if (!node->statements[i].second && node->statements[i].first->get_type()==TypeName::LetStmt) {
+            if (!node->statements[i].second && node->statements[i].first->get_type() == TypeName::LetStmt) {
                 throw std::runtime_error("SemanticCheck::visit: statement without a semicolon is not a let");
             }
         }
     }
-    if (F->get_type()==TypeName::FnStmt) {
-        auto Fnnode=dynamic_cast<FnStmt*>(F);
-        if (Fnnode->name=="main"&&Fnnode->is_crate==true) {//这个需要特判是否存在exit
-            auto stmt=node->statements.back().first;
-            if (stmt->get_type()!=TypeName::CallExpr) {
+    if (F->get_type() == TypeName::FnStmt) {
+        auto Fnnode = dynamic_cast<FnStmt*>(F);
+        if (Fnnode->name == "main" && Fnnode->is_crate == true) { //这个需要特判是否存在exit
+            auto stmt = node->statements.back().first;
+            if (stmt->get_type() != TypeName::CallExpr) {
                 throw std::runtime_error("not an exit function in the last line!");
             }
-            auto Callnode=std::dynamic_pointer_cast<CallExpr>(stmt);
-            if (Callnode->receiver->get_type()!=TypeName::PathExpr) {
+            auto Callnode = std::dynamic_pointer_cast<CallExpr>(stmt);
+            if (Callnode->receiver->get_type() != TypeName::PathExpr) {
                 throw std::runtime_error("not an exit function in the last line!");
             }
-            auto id=std::dynamic_pointer_cast<PathExpr>(Callnode->receiver);
-            if (id->segments.size()!=1||id->segments[0]!="exit") {
+            auto id = std::dynamic_pointer_cast<PathExpr>(Callnode->receiver);
+            if (id->segments.size() != 1 || id->segments[0] != "exit") {
                 throw std::runtime_error("not an exit function in the last line!");
             }
         }
@@ -883,7 +971,7 @@ void SemanticCheck::visit(ReturnExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) 
     if (f == nullptr) {
         throw std::runtime_error("SemanticCheck::visit: return expression exists in a non-function condition");
     }
-    auto Fnnode=dynamic_cast<FnStmt*>(f);
+    auto Fnnode = dynamic_cast<FnStmt*>(f);
     auto T1 = TypeToItem(Fnnode->return_type->realType);
     is_StrongDerivable(node->realType, T1);
     node->realType = std::make_shared<NeverType>();
@@ -891,10 +979,10 @@ void SemanticCheck::visit(ReturnExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) 
 
 void SemanticCheck::visit(BinaryExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
     auto T1 = node->left->realType, T2 = node->right->realType;
-    if (T1->typeKind==TypeName::EnumType&&T2->typeKind==TypeName::EnumType&&node->op=="==") {
-        auto Enum_T1=std::dynamic_pointer_cast<EnumType>(T1);
-        auto Enum_T2=std::dynamic_pointer_cast<EnumType>(T2);
-        if (Enum_T1->structID!=Enum_T2->structID) {
+    if (T1->typeKind == TypeName::EnumType && T2->typeKind == TypeName::EnumType && node->op == "==") {
+        auto Enum_T1 = std::dynamic_pointer_cast<EnumType>(T1);
+        auto Enum_T2 = std::dynamic_pointer_cast<EnumType>(T2);
+        if (Enum_T1->structID != Enum_T2->structID) {
             throw std::runtime_error("not the same enum!");
         }
         node->realType = std::make_shared<BasicType>(TypeName::Bool);
@@ -1106,7 +1194,7 @@ void SemanticCheck::visit(LiteralExpr *node, ASTNode *F, ASTNode *l, ASTNode *f)
         }
     } else if (T->kind == TypeName::Integer) {
         std::string inform;
-        for (auto ch: node->value) {
+        for (auto ch : node->value) {
             if (ch != '_') {
                 inform.push_back(ch);
             }
@@ -1148,26 +1236,26 @@ void SemanticCheck::visit(LiteralExpr *node, ASTNode *F, ASTNode *l, ASTNode *f)
 }
 
 void SemanticCheck::visit(StructExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
-    auto PP=std::dynamic_pointer_cast<PathExpr>(node->structname);
-    auto E=PP->scope.first->lookup_t(PP->segments.back(), PP->scope.second);
-    if (E.type->typeKind==TypeName::ErrorType) {
+    auto PP = std::dynamic_pointer_cast<PathExpr>(node->structname);
+    auto E = PP->scope.first->lookup_t(PP->segments.back(), PP->scope.second);
+    if (E.type->typeKind == TypeName::ErrorType) {
         throw std::runtime_error("Invalid struct name!");
     }
-    auto StType=std::dynamic_pointer_cast<StructType>(TypeToItem(E.type));
-    if (StType->fields.size()!=node->apps.size()) {
+    auto StType = std::dynamic_pointer_cast<StructType>(TypeToItem(E.type));
+    if (StType->fields.size() != node->apps.size()) {
         throw std::runtime_error("there is wrong function parameter number");
     }
-    for (int i=0;i<StType->fields.size();i++) {
-        if (node->apps[i].name->get_type()!=TypeName::PathExpr) {
+    for (int i = 0; i < StType->fields.size(); i++) {
+        if (node->apps[i].name->get_type() != TypeName::PathExpr) {
             throw std::runtime_error("wrong function parameter name");
         }
-        auto Pt=std::dynamic_pointer_cast<PathExpr>(node->apps[i].name);
-        if (Pt->segments.back()!=StType->fields[i].name) {
+        auto Pt = std::dynamic_pointer_cast<PathExpr>(node->apps[i].name);
+        if (Pt->segments.back() != StType->fields[i].name) {
             throw std::runtime_error("wrong function parameter segment");
         }
-        is_StrongDerivable(node->apps[i].variable->realType,TypeToItem(StType->fields[i].type));
+        is_StrongDerivable(node->apps[i].variable->realType, TypeToItem(StType->fields[i].type));
     }
-    node->realType=TypeToItem(E.type);
+    node->realType = TypeToItem(E.type);
 }
 
 void SemanticCheck::visit(AssignmentExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
@@ -1182,19 +1270,19 @@ void SemanticCheck::visit(AssignmentExpr *node, ASTNode *F, ASTNode *l, ASTNode 
         if (!node->left->isMutable) {
             throw std::runtime_error("left value cannot be modified here!");
         }
-        is_StrongDerivable(T2,T1);//right转换成left的类型,那么应该right比left更大才对呀
+        is_StrongDerivable(T2, T1); //right转换成left的类型,那么应该right比left更大才对呀
         node->realType = std::make_shared<UnitType>();
-    } else if (node->op == "+=" || node->op == "-=" || node->op == "*=" || node->op == "/="|| node->op == "%=" || node->op == "<<="||node->op==">>=") {
+    } else if (node->op == "+=" || node->op == "-=" || node->op == "*=" || node->op == "/=" || node->op == "%=" || node->op == "<<=" || node->op == ">>=") {
         if (!node->left->isMutable) {
             throw std::runtime_error("left value cannot be modified here!");
         }
-        is_NumDerivable(T1,T2);
+        is_NumDerivable(T1, T2);
         node->realType = std::make_shared<UnitType>();
-    }else if (node->op == "&="||node->op=="|="||node->op=="^=") {
+    } else if (node->op == "&=" || node->op == "|=" || node->op == "^=") {
         if (!node->left->isMutable) {
             throw std::runtime_error("left value cannot be modified here!");
         }
-        is_AllDerivable(T1,T2);
+        is_AllDerivable(T1, T2);
         if (!is_Number(T1)) {
             throw std::runtime_error("not a number!!!");
         }
@@ -1220,7 +1308,7 @@ void SemanticCheck::visit(ArrayInitExpr *node, ASTNode *F, ASTNode *l, ASTNode *
     auto T = node->elements[0]->realType;
     std::vector<std::any> array_children;
     bool strtok = true;
-    for (const auto &child: node->elements) {
+    for (const auto &child : node->elements) {
         if (T->typeKind == TypeName::NeverType) {
             T = child->realType;
         } else if (child->realType->typeKind == TypeName::NeverType) {
@@ -1236,8 +1324,8 @@ void SemanticCheck::visit(ArrayInitExpr *node, ASTNode *F, ASTNode *l, ASTNode *
         }
     }
     node->realType = std::make_shared<ArrayType>(T, std::make_shared<LiteralExpr>(std::to_string(
-    static_cast<long long>(array_children.size())),std::make_shared<BasicType>(TypeName::Usize),
-    static_cast<long long>(array_children.size())));
+                         static_cast<long long>(array_children.size())), std::make_shared<BasicType>(TypeName::Usize),
+                     static_cast<long long>(array_children.size())));
     if (strtok) {
         node->eval = array_children;
     }
@@ -1261,9 +1349,9 @@ void SemanticCheck::visit(ArraySimplifiedExpr *node, ASTNode *F, ASTNode *l, AST
     }
     auto len = static_cast<unsigned int>(std::any_cast<long long>(E));
     node->realType = std::make_shared<ArrayType>(
-        node->element->realType, std::make_shared<LiteralExpr>(std::to_string(len),
-                                                               std::make_shared<BasicType>(TypeName::Usize),
-                                                               static_cast<long long>(len)));
+                         node->element->realType, std::make_shared<LiteralExpr>(std::to_string(len),
+                             std::make_shared<BasicType>(TypeName::Usize),
+                             static_cast<long long>(len)));
     auto E0 = node->element->eval;
     if (E.has_value()) {
         std::vector<std::any> array_children;
@@ -1316,8 +1404,8 @@ void SemanticCheck::visit(RustType *node, ASTNode *F, ASTNode *l, ASTNode *f) {
     }
     auto noder = node->realType->typePtr;
     if (noder->typeKind == TypeName::IdentifierType) {
-        auto T=std::dynamic_pointer_cast<IdentifierType>(noder);
-        auto Entry=node->scope.first->lookup_t(T->name,node->scope.second);
+        auto T = std::dynamic_pointer_cast<IdentifierType>(noder);
+        auto Entry = node->scope.first->lookup_t(T->name, node->scope.second);
         node->realType = Entry.type;
     } else if (noder->typeKind == TypeName::ArrayType) {
         auto Array_T = std::dynamic_pointer_cast<ArrayType>(noder);
@@ -1365,16 +1453,16 @@ void SemanticCheck::loadBuiltin(ASTNode *node) {
     std::vector<Param> p{};
     p.emplace_back("", std::make_shared<TypeType>(std::make_shared<BasicType>(TypeName::I32)));
     auto T1 = std::make_shared<FunctionType>(p, std::make_shared<UnitType>());
-    node->scope.first->setItem("exit", {T1, std::any(), false, true});
-    node->scope.first->setItem("printInt", {T1, std::any(), false, true});
-    node->scope.first->setItem("printFlnInt", {T1, std::any(), false, true});
+    node->scope.first->setItem("exit", {nullptr,T1, std::any(), false, true});
+    node->scope.first->setItem("printInt", {nullptr,T1, std::any(), false, true});
+    node->scope.first->setItem("printlnInt", {nullptr,T1, std::any(), false, true});
     p.clear();
-    p.emplace_back("",std::make_shared<TypeType>(std::make_shared<AndStrType>()));
+    p.emplace_back("", std::make_shared<TypeType>(std::make_shared<AndStrType>()));
     auto T2 = std::make_shared<FunctionType>(p, std::make_shared<UnitType>());
-    node->scope.first->setItem("println", {T2, std::any(), false, true});
+    node->scope.first->setItem("println", {nullptr,T2, std::any(), false, true});
     p.clear();
     auto T3 = std::make_shared<FunctionType>(p, std::make_shared<TypeType>(std::make_shared<BasicType>(TypeName::I32)));
-    node->scope.first->setItem("getInt", {T3, std::any(), false, true});
+    node->scope.first->setItem("getInt", {nullptr,T3, std::any(), false, true});
 }
 
 void SemanticCheck::Analyze(ASTNode *node) {

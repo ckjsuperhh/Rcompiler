@@ -18,7 +18,6 @@
 enum class Preference {
     LOWEST,
     ASSIGNMENT, // =
-    AS,
     OROR, // ||
     ANDAND, // &&
     EQUALITY, // ==, !=
@@ -28,6 +27,7 @@ enum class Preference {
     COMPARISON , // <, >, <=, >=
     TERM , // +, -
     FACTOR , // *, /, %
+    AS,
     UNARY , // !, - (一元)
     CALL , // 函数调用、方法调用
     PRIMARY  // 字面量、标识符、括号表达式等
@@ -124,7 +124,7 @@ static std::string get_type_str(TokenType type) {
 }
 
     void consume() {
-        std::cerr<<"Consuming:("<<get_type_str(current_token.type)<<")"<<current_token.value<<std::endl;
+        // std::cerr<<"Consuming:("<<get_type_str(current_token.type)<<")"<<current_token.value<<std::endl;
         current_token = lexer[++current_pos];
     }
     void expect(const TokenType expected_type) const {
@@ -605,6 +605,7 @@ static std::string get_type_str(TokenType type) {
     }
 
     std::shared_ptr<EnumStmt> parse_enum() {
+        consume();
         expect(TokenType::Identifier);
         auto name=peek().value;
         consume();
@@ -618,6 +619,7 @@ static std::string get_type_str(TokenType type) {
                 }
                 expect(TokenType::Identifier);
                 ids.push_back(peek().value);
+                consume();
             }while (match(TokenType::Comma));
         }
         return std::make_shared<EnumStmt>(name,ids);

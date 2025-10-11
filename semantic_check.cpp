@@ -268,6 +268,12 @@ void SemanticCheck::resolveDependency(ASTNode *node, std::shared_ptr<Type> SelfT
                 }
                 if (id.type->typeKind != TypeName::SelfType) {
                     auto T0 = TypeToItem(id.type);
+                    if (T0->typeKind==TypeName::IdentifierType) {
+                        auto T=std::dynamic_pointer_cast<IdentifierType>(T0);
+                        auto Entry=node->scope.first->lookup_t(T->name,node->scope.second);
+                        T0 = TypeToItem(Entry.type);
+                        id.type->typePtr=T0;
+                    }
                     if (is_and) {
                         throw std::runtime_error("unsupported and type of parameter");
                     }
@@ -413,7 +419,21 @@ void SemanticCheck::visit(PathExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
         node->realType = e.type;
         node->eval = e.eval;
     } else {
-        throw std::runtime_error("I don't know how to solve it!!!");
+        auto e = node->scope.first->lookup_t(node->segments[0],node->scope.second);
+        if (e.type->typeKind==TypeName::ErrorType) {
+            throw std::runtime_error("SemanticCheck::visit: cannot find anything when checking the path expression");
+        }
+        if (e.type->typeKind==TypeName::TypeType) {
+            auto EE=TypeToItem(e.type);
+            if (EE->typeKind==TypeName::EnumType) {
+                auto ET=std::dynamic_pointer_cast<EnumType>(EE);
+                if (!ET->MemberNames->contains(node->segments[1])) {
+                    throw std::runtime_error("not a name in the enum!");
+                }
+                node->realType=EE;
+            }
+        }
+
     }
 }
 
@@ -527,6 +547,14 @@ void SemanticCheck::is_StrongDerivable(const std::shared_ptr<Type> &T1, const st
         auto Struct_T1 = std::dynamic_pointer_cast<StructType>(T1);
         auto Struct_T0 = std::dynamic_pointer_cast<StructType>(T0);
         if (Struct_T0->structID!=Struct_T1->structID) {
+            throw std::runtime_error("structID is not the same!!!");
+        }
+        return;
+    }
+    if (T1->typeKind == TypeName::EnumType && T0->typeKind == TypeName::EnumType) {
+        auto Enum_T1 = std::dynamic_pointer_cast<EnumType>(T1);
+        auto Enum_T0 = std::dynamic_pointer_cast<EnumType>(T0);
+        if (Enum_T0->structID!=Enum_T1->structID) {
             throw std::runtime_error("structID is not the same!!!");
         }
         return;
@@ -745,18 +773,19 @@ void SemanticCheck::visit(BreakExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
         if (node->expr != nullptr) {
             throw std::runtime_error("SemanticCheck::visit: break cannot have a value in while expression");
         }
-    } else {
-        std::shared_ptr<Type> T0;
+    } else {//在loop中
         if (node->expr != nullptr) {
+            std::shared_ptr<Type> T0;
             T0 = node->expr->realType;
-        }
-        if (T0->typeKind != TypeName::NeverType) {
-            if (l->realType != nullptr) {
-                is_StrongDerivable(l->realType, T0);
-            } else {
-                l->realType = T0;
+            if (T0->typeKind != TypeName::NeverType) {
+                if (l->realType != nullptr) {
+                    is_StrongDerivable(l->realType, T0);
+                } else {
+                    l->realType = T0;
+                }
             }
         }
+
     }
 }
 
@@ -862,6 +891,15 @@ void SemanticCheck::visit(ReturnExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) 
 
 void SemanticCheck::visit(BinaryExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
     auto T1 = node->left->realType, T2 = node->right->realType;
+    if (T1->typeKind==TypeName::EnumType&&T2->typeKind==TypeName::EnumType&&node->op=="==") {
+        auto Enum_T1=std::dynamic_pointer_cast<EnumType>(T1);
+        auto Enum_T2=std::dynamic_pointer_cast<EnumType>(T2);
+        if (Enum_T1->structID!=Enum_T2->structID) {
+            throw std::runtime_error("not the same enum!");
+        }
+        node->realType = std::make_shared<BasicType>(TypeName::Bool);
+        return;
+    }
     if (T1->typeKind != TypeName::BasicType || T2->typeKind != TypeName::BasicType) {
         throw std::runtime_error("ridiculous types around the binary expression");
     }
@@ -1334,6 +1372,9 @@ void SemanticCheck::loadBuiltin(ASTNode *node) {
     p.emplace_back("",std::make_shared<TypeType>(std::make_shared<AndStrType>()));
     auto T2 = std::make_shared<FunctionType>(p, std::make_shared<UnitType>());
     node->scope.first->setItem("println", {T2, std::any(), false, true});
+    p.clear();
+    auto T3 = std::make_shared<FunctionType>(p, std::make_shared<TypeType>(std::make_shared<BasicType>(TypeName::I32)));
+    node->scope.first->setItem("getInt", {T3, std::any(), false, true});
 }
 
 void SemanticCheck::Analyze(ASTNode *node) {

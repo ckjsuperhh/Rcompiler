@@ -589,6 +589,7 @@
             if (boost::regex_search(start, end, match, semicolon, boost::match_continuous)) {
                 waiting_tokens.emplace_back(TokenType::Semicolon, match.str());;
             }
+            match_raw_str(waiting_tokens);
             if (waiting_tokens.empty()) {
                 throw std::runtime_error("Nothing can be matched!");
             }
@@ -600,6 +601,21 @@
             }
             start+=goal.value.length();
             return goal;
+        }
+
+        void match_raw_str(std::vector<Token>& waiting_tokens) {
+            int i=3;
+            std::string target="r#\"";
+            if (*start=='r'&&*(start+1)=='#'&&*(start+2)=='\"') {
+                for (;*(start+i)!='\"';i++) {
+                    target+=*(start+i);
+                }
+                if (*(start+i+1)!='#') {
+                    throw std::runtime_error("INVALID RAW STRING");
+                }
+                target+="\"#";
+                waiting_tokens.emplace_back(TokenType::String,target);
+            }
         }
 
         static void ShowOutput(const std::vector<Token> &tokens) {

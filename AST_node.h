@@ -446,8 +446,9 @@ struct StructType:Type {
     std::string structName;
     SymbolTable* field;
     int FieldNum;
-    StructType(int id, std::string name, SymbolTable* s,int f):
-    Type(TypeName::StructType),structID(id),structName(std::move(name)),field(s),FieldNum(f) {}
+    std::vector<Field> fields;
+    StructType(int id, std::string name, SymbolTable* s,int f,std::vector<Field> fi):
+    Type(TypeName::StructType),structID(id),structName(std::move(name)),field(s),FieldNum(f),fields(std::move(fi)) {}
     // StructType的三个纯虚函数实现
     bool equals(const Type* other) const override {
         // 先判断是否为StructType类型
@@ -747,6 +748,7 @@ struct FnStmt : Stmt {
     std::vector<Param> parameters;
     std::shared_ptr<RustType> return_type;
     std::shared_ptr<Expr> body;
+    bool is_crate=false;
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     FnStmt(std::string n, std::vector<Param> p, std::shared_ptr<RustType> r, std::shared_ptr<Expr> b):
         Stmt(TypeName::FnStmt), name(std::move(n)), parameters(std::move(p)),

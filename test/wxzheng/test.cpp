@@ -828,9 +828,9 @@ TEST(semantic1, type20) {
 TEST(semantic1, type3) {
     EXPECT_ANY_THROW(runSemantic("type3.in"));
 }
-// TEST(semantic1, type4) {
-//     EXPECT_ANY_THROW(runSemantic("type4.in"));
-// }
+TEST(semantic1, type4) {
+    EXPECT_ANY_THROW(runSemantic("type4.in"));
+}
 TEST(semantic1, type5) {
     EXPECT_ANY_THROW(runSemantic("type5.in"));
 }

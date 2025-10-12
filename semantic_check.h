@@ -21,6 +21,7 @@ struct ArrayType;
 struct FunctionType;
 struct StructType;
 struct TupleType;
+struct ReferenceType;
 struct LiteralExpr;
 struct InfiniteLoopExpr;
 struct BlockExpr;
@@ -107,17 +108,19 @@ public:
     void visit(Program *node,ASTNode* F,ASTNode* l,ASTNode* f);
     void visit(RustType *node,ASTNode *F,ASTNode *l,ASTNode* f);
 
-    void TypeCheck(ArrayType *node, ASTNode *F, ASTNode *l, ASTNode *f);
+    void TypeCheck(ReferenceType *node, ASTNode *F, ASTNode *l, ASTNode *f, std::pair<SymbolTable *, ASTNode *> scope);
 
-    void TypeCheck(BasicType *node, ASTNode *F, ASTNode *l, ASTNode *f);
+    void TypeCheck(ArrayType *node, ASTNode *F, ASTNode *l, ASTNode *f, std::pair<SymbolTable *, ASTNode *> scope);
 
-    void TypeCheck(SelfType *node, ASTNode *F, ASTNode *l, ASTNode *f);
+    void TypeCheck(BasicType *node, ASTNode *F, ASTNode *l, ASTNode *f, std::pair<SymbolTable *, ASTNode *> scope);
 
-    void TypeCheck(FunctionType *node, ASTNode *F, ASTNode *l, ASTNode *f);
+    void TypeCheck(FunctionType *node, ASTNode *F, ASTNode *l, ASTNode *f, std::pair<SymbolTable *, ASTNode *> scope);
 
-    void TypeCheck(StructType *node, ASTNode *F, ASTNode *l, ASTNode *f);
+    void TypeCheck(SelfType *node, ASTNode *F, ASTNode *l, ASTNode *f, std::pair<SymbolTable *, ASTNode *> scope);
 
-    void TypeCheck(IdentifierType *node, ASTNode *F, ASTNode *l, ASTNode *f);
+    void TypeCheck(StructType *node, ASTNode *F, ASTNode *l, ASTNode *f, std::pair<SymbolTable *, ASTNode *> scope);
+
+    void TypeCheck(IdentifierType *node, ASTNode *F, ASTNode *l, ASTNode *f, std::pair<SymbolTable *, ASTNode *> scope);
 
     void loadBuiltin(ASTNode *node);
 

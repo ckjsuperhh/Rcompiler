@@ -988,62 +988,66 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
 }
 
 // 1. BasicType::accept
-void BasicType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
-    visitor.TypeCheck(this, F, l, f);
+void BasicType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f,std::pair<SymbolTable*,ASTNode*> scope) {
+    visitor.TypeCheck(this, F, l, f, scope);
 }
 
 // 2. ArrayType::accept
-void ArrayType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
-    visitor.TypeCheck(this, F, l, f);
+void ArrayType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f,std::pair<SymbolTable*,ASTNode*> scope) {
+    visitor.TypeCheck(this, F, l, f, scope);
 }
 
 // 3. IdentifierType::accept
-void IdentifierType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
-    visitor.TypeCheck(this, F, l, f);
+void IdentifierType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f,std::pair<SymbolTable*,ASTNode*> scope) {
+    visitor.TypeCheck(this, F, l, f, scope);
 }
 
 // 4. SelfType::accept
-void SelfType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
-    visitor.TypeCheck(this, F, l, f);
+void SelfType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f,std::pair<SymbolTable*,ASTNode*> scope) {
+    visitor.TypeCheck(this, F, l, f, scope);
 }
 
 // 5. FunctionType::accept
-void FunctionType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
-    visitor.TypeCheck(this, F, l, f);
+void FunctionType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f,std::pair<SymbolTable*,ASTNode*> scope) {
+    visitor.TypeCheck(this, F, l, f, scope);
 }
 
 // 6. ErrorType::accept
-void ErrorType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+void ErrorType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f,std::pair<SymbolTable*,ASTNode*> scope) {
     throw std::logic_error("ErrorType");
 }
 
 // 7. UnitType::accept
-void UnitType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+void UnitType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f,std::pair<SymbolTable*,ASTNode*> scope) {
     // 原代码为空实现，保持不变
 }
 
 // 8. NeverType::accept
-void NeverType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+void NeverType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f,std::pair<SymbolTable*,ASTNode*> scope) {
     // 原代码为空实现，保持不变
 }
 
 // 9. EnumType::accept
-void EnumType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+void EnumType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f,std::pair<SymbolTable*,ASTNode*> scope) {
     // 原代码为空实现，保持不变
 }
 
 // 10. StructType::accept
-void StructType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+void StructType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f,std::pair<SymbolTable*,ASTNode*> scope) {
     // 原代码为空实现，保持不变
 }
 
-void AndStrType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+void AndStrType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f,std::pair<SymbolTable*,ASTNode*> scope) {
     // 原代码为空实现，保持不变
 }
 
 // 11. TypeType::accept（原代码为空实现，补充类外定义）
-void TypeType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
+void TypeType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f,std::pair<SymbolTable*,ASTNode*> scope) {
     // 原代码为空实现，保持不变
+}
+
+void ReferenceType::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f,std::pair<SymbolTable*,ASTNode*> scope) {
+    visitor.TypeCheck(this, F, l, f,scope);
 }
 
 // 1. RustType::accept

@@ -38,10 +38,21 @@ std::string getNodeIdentifier(ASTNode *node) {
         auto pathexpr = dynamic_cast<PathExpr *>(node);
         return pathexpr->segments.back();
     }
+    if (node->node_type == TypeName::AsExpr) {
+        auto asexpr = dynamic_cast<AsExpr *>(node);
+        return std::dynamic_pointer_cast<PathExpr>(asexpr->expr)->segments.back();
+    }
     if (node->node_type == TypeName::RustType) {
         auto rusttype = dynamic_cast<RustType *>(node);
-        if (rusttype->realType->typeKind == TypeName::IdentifierType) {
-            return "Type-" + std::dynamic_pointer_cast<IdentifierType>(rusttype->realType)->name;
+        if (rusttype->realType->typePtr->typeKind == TypeName::IdentifierType) {
+            return "Type-" + std::dynamic_pointer_cast<IdentifierType>(rusttype->realType->typePtr)->name;
+        }
+        if (rusttype->realType->typePtr->typeKind == TypeName::ArrayType&&rusttype->realType->typePtr->typePtr->typeKind==TypeName::IdentifierType) {
+            return "Type-"+ std::dynamic_pointer_cast<IdentifierType>(rusttype->realType->typePtr->typePtr)->name;
+        }
+        if (rusttype->realType->typePtr->typeKind == TypeName::ArrayType&&rusttype->realType->typePtr->typePtr->typeKind==TypeName::ArrayType
+            &&rusttype->realType->typePtr->typePtr->typePtr->typeKind==TypeName::IdentifierType) {
+            return "Type-"+ std::dynamic_pointer_cast<IdentifierType>(rusttype->realType->typePtr->typePtr->typePtr)->name;
         }
     }
     throw std::runtime_error("Unknown item type");
@@ -120,17 +131,88 @@ void SemanticCheck::resolveDependency(ASTNode *node, std::shared_ptr<Type> SelfT
                 if (std::holds_alternative<ASTNode *>(grandson)) {
                     nodeStack.push(std::get<ASTNode *>(grandson));
                 }
+                if (std::holds_alternative<Type *>(grandson)) {
+                    auto* rustObj = new RustType(std::shared_ptr<Type>(std::get<Type*>(grandson)));
+                    nodeStack.push(rustObj);
+                }
             }
             while (!nodeStack.empty()) {
                 ASTNode *curnode = nodeStack.top();
                 nodeStack.pop();
+                if (curnode->node_type == TypeName::RustType && curnode->realType->typeKind ==
+                    TypeName::TypeType && curnode->realType->typePtr->typeKind == TypeName::ArrayType) {
+                    auto Array = dynamic_pointer_cast<ArrayType>(curnode->realType->typePtr);
+                    if (Array->length->get_type() == TypeName::AsExpr) {
+                        auto AA = dynamic_pointer_cast<AsExpr>(Array->length);
+                        std::string refID = getNodeIdentifier(AA.get());
+                        int refIndex = std::lower_bound(itemName.begin(), itemName.end(), refID) - itemName.begin();
+                        if (refIndex < sum && itemName[refIndex] == refID && itemTable[refID]->node_type !=
+                            TypeName::FnStmt) {
+                            DAG[refIndex].push_back(curIndex);
+                            inDegree[curIndex]++;
+                            }
+                    }
+                    if (Array->length->get_type() == TypeName::PathExpr) {
+                        auto PP = dynamic_pointer_cast<PathExpr>(Array->length);
+                        std::string refID = getNodeIdentifier(PP.get());
+                        int refIndex = std::lower_bound(itemName.begin(), itemName.end(), refID) - itemName.begin();
+                        if (refIndex < sum && itemName[refIndex] == refID && itemTable[refID]->node_type !=
+                            TypeName::FnStmt) {
+                            DAG[refIndex].push_back(curIndex);
+                            inDegree[curIndex]++;
+                            }
+                    }
+                    if (Array->length->get_type() == TypeName::BinaryExpr) {
+                        auto BB = std::dynamic_pointer_cast<BinaryExpr>(Array->length);
+                        if (BB->left->get_type() == TypeName::PathExpr) {
+                            auto PP = dynamic_pointer_cast<PathExpr>(BB->left);
+                            std::string refID = getNodeIdentifier(PP.get());
+                            int refIndex = std::lower_bound(itemName.begin(), itemName.end(), refID) - itemName.begin();
+                            if (refIndex < sum && itemName[refIndex] == refID && itemTable[refID]->node_type !=
+                                TypeName::FnStmt) {
+                                DAG[refIndex].push_back(curIndex);
+                                inDegree[curIndex]++;
+                            }
+                        }
+                        if (BB->right->get_type() == TypeName::PathExpr) {
+                            auto PP = dynamic_pointer_cast<PathExpr>(BB->right);
+                            std::string refID = getNodeIdentifier(PP.get());
+                            int refIndex = std::lower_bound(itemName.begin(), itemName.end(), refID) - itemName.begin();
+                            if (refIndex < sum && itemName[refIndex] == refID && itemTable[refID]->node_type !=
+                                TypeName::FnStmt) {
+                                DAG[refIndex].push_back(curIndex);
+                                inDegree[curIndex]++;
+                            }
+                        }
+                    }
+                }
                 if (curnode->node_type == TypeName::PathExpr || (
                         curnode->node_type == TypeName::RustType && curnode->realType->typeKind ==
-                        TypeName::IdentifierType)) {
+                        TypeName::TypeType&& curnode->realType->typePtr->typeKind == TypeName::IdentifierType)) {
                     std::string refID = getNodeIdentifier(curnode);
                     int refIndex = std::lower_bound(itemName.begin(), itemName.end(), refID) - itemName.begin();
-                    if (refIndex < sum && itemName[refIndex] == refID && itemTable[refID]->node_type !=
-                        TypeName::FnStmt) {
+                    if (refIndex < sum && itemName[refIndex] == refID && itemTable[refID]->node_type !=TypeName::FnStmt) {
+                        DAG[refIndex].push_back(curIndex);
+                        inDegree[curIndex]++;
+                    }
+                }
+                if (curnode->node_type == TypeName::RustType&& curnode->realType->typeKind ==
+                        TypeName::TypeType&& curnode->realType->typePtr->typeKind == TypeName::ArrayType
+                        &&curnode->realType->typePtr->typePtr->typeKind==TypeName::IdentifierType) {
+                    std::string refID = getNodeIdentifier(curnode);
+                    int refIndex = std::lower_bound(itemName.begin(), itemName.end(), refID) - itemName.begin();
+                    if (refIndex < sum && itemName[refIndex] == refID && itemTable[refID]->node_type !=TypeName::FnStmt) {
+                        DAG[refIndex].push_back(curIndex);
+                        inDegree[curIndex]++;
+                    }
+                }
+                if (curnode->node_type == TypeName::RustType&& curnode->realType->typeKind ==
+                        TypeName::TypeType&& curnode->realType->typePtr->typeKind == TypeName::ArrayType
+                        &&curnode->realType->typePtr->typePtr->typeKind==TypeName::ArrayType&&
+                        curnode->realType->typePtr->typePtr->typePtr->typeKind==TypeName::IdentifierType) {
+                    std::string refID = getNodeIdentifier(curnode);
+                    int refIndex = std::lower_bound(itemName.begin(), itemName.end(), refID) - itemName.begin();
+                    if (refIndex < sum && itemName[refIndex] == refID && itemTable[refID]->node_type !=TypeName::FnStmt) {
                         DAG[refIndex].push_back(curIndex);
                         inDegree[curIndex]++;
                     }
@@ -273,12 +355,23 @@ void SemanticCheck::resolveDependency(ASTNode *node, std::shared_ptr<Type> SelfT
                 }
                 if (id.type->typeKind != TypeName::selfType) {
                     auto T0 = TypeToItem(id.type);
-                    if (T0->typeKind == TypeName::IdentifierType) {
+
+                    if (T0->typeKind==TypeName::ReferenceType) {
+                        auto T1=T0->typePtr;
+                        if (T1->typeKind==TypeName::IdentifierType) {
+                            auto T = std::dynamic_pointer_cast<IdentifierType>(T1);
+                            auto Entry = node->scope.first->lookup_t(T->name, node->scope.second);
+                            T1 = TypeToItem(Entry.type);
+                            id.type->typePtr = T1;
+                        }
+                    }else if (T0->typeKind == TypeName::IdentifierType) {
                         auto T = std::dynamic_pointer_cast<IdentifierType>(T0);
                         auto Entry = node->scope.first->lookup_t(T->name, node->scope.second);
                         T0 = TypeToItem(Entry.type);
                         id.type->typePtr = T0;
                     }
+
+                    T0->accept(*this,node, nullptr, nullptr,node->scope);
                     if (is_and) {
                         throw std::runtime_error("unsupported and type of parameter");
                     }//这是什么？
@@ -304,6 +397,20 @@ void SemanticCheck::resolveDependency(ASTNode *node, std::shared_ptr<Type> SelfT
             if (!Structnode->fields.empty()) {
                 for (auto i = 0; i < T->FieldNum; i++) {
                     auto T0 = TypeToItem(Structnode->fields[i].type);
+                    if (T0->typeKind==TypeName::IdentifierType) {
+                        auto identifier = std::dynamic_pointer_cast<IdentifierType>(T0);
+                        auto Entry = node->scope.first->lookup_t(identifier->name, node->scope.second);
+                        auto TT= TypeToItem(Entry.type);
+                        if (TT->typeKind!=TypeName::StructType) {
+                            throw std::runtime_error("unregistered struct type in the structstmt!");
+                        }
+                        Structnode->fields[i].type = TT;
+                        T0= TypeToItem(Entry.type);
+                        T->fields[i].type = Entry.type;//把之前注册的T也给改正
+                    }else if (T0->typeKind==TypeName::ArrayType) {
+                        T0->accept(*this,child.get(),nullptr,nullptr,child->scope);//更新一下ArrayType的length
+                    }
+                    //TODO
                     child->scope.first->setItem("S-" + Structnode->fields[i].name, {nullptr,T0, std::any(), true, true});
                 }
             }
@@ -311,6 +418,7 @@ void SemanticCheck::resolveDependency(ASTNode *node, std::shared_ptr<Type> SelfT
                 throw std::runtime_error("global variable should not shadow");
             }
             node->scope.first->setType(Structnode->name, {child.get(),ItemToType(T), std::any(), false, true});
+            child->realType=std::make_shared<UnitType>();
         } else if (child->node_type == TypeName::InherentImplStmt) {
             auto Implnode = std::dynamic_pointer_cast<InherentImplStmt>(child);
             auto EEE=child->scope.first->lookup_t(Implnode->name, node->scope.second);
@@ -365,19 +473,28 @@ void SemanticCheck::resolveDependency(ASTNode *node, std::shared_ptr<Type> SelfT
                     }
                     if (id.type->typeKind != TypeName::selfType) {
                         auto T0 = TypeToItem(id.type);
-                        if (T0->typeKind == TypeName::IdentifierType) {
-                            auto ptr = std::dynamic_pointer_cast<IdentifierType>(T0);
-                            auto Entry = node->scope.first->lookup_t(ptr->name, node->scope.second);
+                        if (T0->typeKind==TypeName::ReferenceType) {
+                            auto T1=T0->typePtr;
+                            if (T1->typeKind==TypeName::IdentifierType) {
+                                auto TT = std::dynamic_pointer_cast<IdentifierType>(T1);
+                                auto Entry = node->scope.first->lookup_t(TT->name, node->scope.second);
+                                T1 = TypeToItem(Entry.type);
+                                id.type->typePtr = T1;
+                            }
+                        }else if (T0->typeKind == TypeName::IdentifierType) {
+                            auto TT = std::dynamic_pointer_cast<IdentifierType>(T0);
+                            auto Entry = node->scope.first->lookup_t(TT->name, node->scope.second);
                             T0 = TypeToItem(Entry.type);
                             id.type->typePtr = T0;
                         }
+                        T0->accept(*this,node, nullptr, nullptr,node->scope);
                         if (is_and) {
                             throw std::runtime_error("unsupported and type of parameter");
                         }
                         if (!is_mut) {
-                            child->scope.first->setItem(id.name, {nullptr,T0, std::any(), false, false});
+                            Fnnode->scope.first->setItem(id.name, {nullptr,T0, std::any(), false, false});
                         } else {
-                            child->scope.first->setItem(id.name, {nullptr,T0, std::any(), true, false});
+                            Fnnode->scope.first->setItem(id.name, {nullptr,T0, std::any(), true, false});
                         }
                     } else if (t!=0 && id.type->typeKind == TypeName::selfType) {
                         throw std::runtime_error("self must be the first parameter");
@@ -390,7 +507,7 @@ void SemanticCheck::resolveDependency(ASTNode *node, std::shared_ptr<Type> SelfT
                             tpr->is_mutable = true;
                         }
                         Fnnode->scope.first->setItem("self", {nullptr,tpr,std::any(), is_mut, false});
-                        Fnnode->parameters[0].type=tpr;//把原本的self改成新的type
+                        Fnnode->parameters[0].type=std::make_shared<TypeType>(tpr,is_mut);//把原本的self改成新的type
                     }
                 }
                 Struct_T->field->setItem(Fnnode->name, {nullptr,std::make_shared<FunctionType>(Fnnode->parameters,
@@ -518,51 +635,251 @@ void SemanticCheck::visit(PathExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
 }
 
 void SemanticCheck::visit(FieldAccessExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
+
+
+
+    if (node->struct_name->get_type()==TypeName::FieldAccessExpr) {
+        pre_processor(node->struct_name.get(), node, l, f);
+        node->struct_name->accept(*this, node, l, f);
+        auto TT=node->struct_name->realType;
+        if (TT->typeKind != TypeName::StructType) {
+            throw std::runtime_error("unregistered struct");
+        }
+        auto T=std::dynamic_pointer_cast<StructType>(TT);
+        if (F->get_type() == TypeName::CallExpr&&F->Id==1) {//a[3].b()
+            auto PP=std::dynamic_pointer_cast<PathExpr>(node->field_expr);
+            auto E = T->field->lookup_i(PP->segments.back());
+            if (E.type->typeKind != TypeName::FunctionType) {
+                throw std::runtime_error("non-existent function");
+            }
+            node->realType = E.type;
+        }else {
+            auto PP = std::dynamic_pointer_cast<PathExpr>(node->field_expr);
+            auto E = T->field->lookup_i("S-" + PP->segments.back());
+            if (E.type->typeKind == TypeName::ErrorType) {
+                throw std::runtime_error("non-existent field");
+            }
+            node->realType = E.type;
+        }
+        node->isMutable = node->struct_name->isMutable;
+        return;
+    }
+
+
+
+    if (node->struct_name->get_type()==TypeName::ArrayAccessExpr) {
+        pre_processor(node->struct_name.get(), node, l, f);
+        node->struct_name->accept(*this, node, l, f);
+        auto TT=node->struct_name->realType;
+        if (TT->typeKind != TypeName::StructType) {
+            throw std::runtime_error("unregistered struct");
+        }
+        auto T=std::dynamic_pointer_cast<StructType>(TT);
+        if (F->get_type() == TypeName::CallExpr&&F->Id==1) {//a[3].b()
+            auto PP=std::dynamic_pointer_cast<PathExpr>(node->field_expr);
+            auto E = T->field->lookup_i(PP->segments.back());
+            if (E.type->typeKind != TypeName::FunctionType) {
+                throw std::runtime_error("non-existent function");
+            }
+            node->realType = E.type;
+        }else {
+            auto PP = std::dynamic_pointer_cast<PathExpr>(node->field_expr);
+            auto E = T->field->lookup_i("S-" + PP->segments.back());
+            if (E.type->typeKind == TypeName::ErrorType) {
+                throw std::runtime_error("non-existent field");
+            }
+            node->realType = E.type;
+        }
+        node->isMutable = node->struct_name->isMutable;
+        return;
+    }
+
+    if (node->struct_name->get_type()==TypeName::CallExpr) {
+        auto PP=std::dynamic_pointer_cast<PathExpr>(node->field_expr);
+        pre_processor(node->struct_name.get(), node, l, f);
+        node->struct_name->accept(*this, node, l, f);
+        auto TT=node->struct_name->realType;
+        if (TT->typeKind != TypeName::StructType) {
+            throw std::runtime_error("unregistered struct");
+        }
+        auto T=std::dynamic_pointer_cast<StructType>(TT);
+        auto FnType = T->field->lookup_i(PP->segments.back());
+        if (FnType.type->typeKind!=TypeName::FunctionType) {
+            throw std::runtime_error("non-existent function");
+        }
+        node->realType = FnType.type;
+        return;
+    }
+
+    if (node->struct_name->get_type()==TypeName::LiteralExpr) {
+        auto PP=std::dynamic_pointer_cast<PathExpr>(node->field_expr);
+        if (PP->segments.size() == 1 && PP->segments[0] == "to_string") {
+            std::vector<Param> p;
+            node->realType=std::make_shared<FunctionType>(p,std::make_shared<TypeType>(std::make_shared<BasicType>(TypeName::String)),"to_string");
+            return;
+        }
+    }
+
     if (node->struct_name->get_type() != TypeName::PathExpr) {
         throw std::runtime_error("struct name is not a path expression");
     }
     auto Pt = std::dynamic_pointer_cast<PathExpr>(node->struct_name);
     SymbolEntry Entry;
-    if (Pt->segments.size()==1&&Pt->segments[0]=="self") {
+    if (Pt->segments.size() == 1 && Pt->segments[0] == "self") {
         Entry = node->scope.first->lookup_i("self", node->scope.second);
-    }else {
-        Entry = node->scope.first->lookup_t(Pt->segments.back(), node->scope.second);
+    } else {
+        Entry = node->scope.first->lookup_i(Pt->segments.back(), node->scope.second);
     }
-    if (Entry.type->typeKind != TypeName::StructType) {
-        throw std::runtime_error("unregistered struct");
-    }
-    auto T = std::dynamic_pointer_cast<StructType>(Entry.type);
-    if (T->is_mutable) {
+    std::shared_ptr<Type> R=Entry.type;
+    if (Entry.is_mutable) {
         node->isMutable = true;
     }
-    if (node->field_expr->get_type() == TypeName::PathExpr) {
+    while (R->typeKind == TypeName::ReferenceType) {
+        R=R->typePtr;
+    }//自动解引用
+    auto PP=std::dynamic_pointer_cast<PathExpr>(node->field_expr);
+
+
+    if (PP->segments.size() == 1 && PP->segments[0] == "len") {//我需要特判data.len()这个函数
+        if (F->get_type() == TypeName::CallExpr&&F->Id==1&&R->typeKind==TypeName::ArrayType) {
+            std::vector<Param> p;
+            p.emplace_back("",std::make_shared<TypeType>(std::make_shared<ArrayType>(std::make_shared<UnitType>(),std::make_shared<UnitExpr>())));
+            node->realType=std::make_shared<FunctionType>(p,std::make_shared<TypeType>(std::make_shared<BasicType>(TypeName::Usize)),"len");
+            return;
+        }
+    }
+
+
+    if (R->typeKind != TypeName::StructType) {
+        throw std::runtime_error("unregistered struct");
+    }
+    auto T = std::dynamic_pointer_cast<StructType>(R);
+    if (F->get_type() == TypeName::CallExpr&&F->Id==1) {//a.b(),是a.b作爲一個左邊，然後parse了一個()
+        auto PP=std::dynamic_pointer_cast<PathExpr>(node->field_expr);
+        auto E = T->field->lookup_i(PP->segments.back());
+        if (E.type->typeKind != TypeName::FunctionType) {
+            throw std::runtime_error("non-existent function");
+        }
+        node->realType = E.type;
+    }else {
         auto PP = std::dynamic_pointer_cast<PathExpr>(node->field_expr);
         auto E = T->field->lookup_i("S-" + PP->segments.back());
         if (E.type->typeKind == TypeName::ErrorType) {
             throw std::runtime_error("non-existent field");
         }
         node->realType = E.type;
-    } else if (node->field_expr->get_type() == TypeName::CallExpr) {
-        //TODO
     }
 }
 
 void SemanticCheck::visit(CallExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
+
+
     if (node->receiver->get_type() == TypeName::PathExpr) {
         auto Pnode = std::dynamic_pointer_cast<PathExpr>(node->receiver);
-        auto Entry = node->scope.first->lookup_i(Pnode->segments.back(), node->scope.second);
-        if (Entry.type->typeKind == TypeName::ErrorType) {
-            throw std::runtime_error("there is no function named " + Pnode->segments.back() + " here!");
+        if (Pnode->segments.size() == 1) {
+            auto Entry = node->scope.first->lookup_i(Pnode->segments.back(), node->scope.second);
+            if (Entry.type->typeKind == TypeName::ErrorType) {
+                throw std::runtime_error("there is no function named " + Pnode->segments.back() + " here!");
+            }
+            if (Entry.type->typeKind != TypeName::FunctionType) {
+                throw std::runtime_error("named " + Pnode->segments.back() + " is not a function!");
+            }
+            auto FnType = std::dynamic_pointer_cast<FunctionType>(Entry.type);
+            if (FnType->parameters.size() != node->arguments.size()) {
+                throw std::runtime_error("there is wrong function parameter number");
+            }
+            for (int i = 0; i < FnType->parameters.size(); i++) {
+                auto TTT=node->arguments[i]->realType;
+                auto TTTT=TypeToItem(FnType->parameters[i].type);
+                while (TTT->typeKind == TypeName::ReferenceType&&TTTT->typeKind!=TypeName::ReferenceType) {
+                    TTT=TTT->typePtr;
+                }
+                is_StrongDerivable(TTT, TTTT);//CallExpr中的自动解引用
+            }
+            node->realType = TypeToItem(FnType->return_type);
+        } else {
+            auto Entry = node->scope.first->lookup_t(Pnode->segments[0], node->scope.second);
+            auto TT=TypeToItem(Entry.type);
+            if (TT->typeKind != TypeName::StructType) {
+                throw std::runtime_error("unregistered struct");
+            }
+            auto T = std::dynamic_pointer_cast<StructType>(TT);
+            auto E = T->field->lookup_i(Pnode->segments[1]);
+            if (E.type->typeKind != TypeName::FunctionType) {
+                throw std::runtime_error("non-existent function in the struct");
+            }
+            auto FnType = std::dynamic_pointer_cast<FunctionType>(E.type);
+            if (FnType->parameters.size() != node->arguments.size()) {
+                throw std::runtime_error("there is wrong function parameter number");
+            }
+            for (int i = 0; i < FnType->parameters.size(); i++) {
+                is_StrongDerivable(node->arguments[i]->realType, TypeToItem(FnType->parameters[i].type));
+            }
+            node->realType = TypeToItem(FnType->return_type);
         }
-        if (Entry.type->typeKind != TypeName::FunctionType) {
-            throw std::runtime_error("named " + Pnode->segments.back() + " is not a function!" );
+    }
+
+
+    else if (node->receiver->get_type() == TypeName::FieldAccessExpr) {
+        auto FnType = std::dynamic_pointer_cast<FunctionType>(node->receiver->realType);
+
+        if (FnType->name=="to_string") {//特判断.to_string()函数
+            node->realType=TypeToItem(FnType->return_type);
+            return;
         }
-        auto FnType = std::dynamic_pointer_cast<FunctionType>(Entry.type);
-        if (FnType->parameters.size() != node->arguments.size()) {
-            throw std::runtime_error("there is wrong function parameter number");
+
+        if (FnType->name=="len") {//特判断.len()函数
+            node->receiver->scope=node->scope;
+            auto R=std::dynamic_pointer_cast<FieldAccessExpr>(node->receiver);
+            R->struct_name->scope=R->scope;
+            pre_processor(R->struct_name.get(),F,l,f);
+            R->struct_name->accept(*this,F,l,f);
+            auto T=R->struct_name->realType;
+            if (T->typeKind != TypeName::ArrayType) {
+                throw std::runtime_error("len function but receiver not an array");
+            }
+            auto TT=std::dynamic_pointer_cast<ArrayType>(T);
+            if (TT->dimension!=1) {
+                throw std::runtime_error("len function but receiver not a 1D array");
+            }
+            node->realType=TypeToItem(FnType->return_type);
+            return;
         }
-        for (int i = 0; i < FnType->parameters.size(); i++) {
-            is_StrongDerivable(node->arguments[i]->realType, TypeToItem(FnType->parameters[i].type));
+
+
+        if (FnType->parameters[0].name=="self") {//然后我还需要查询这个self是否是正确的，比如mut,and
+            if (FnType->parameters.size()-1 != node->arguments.size()) {
+                throw std::runtime_error("there is wrong function parameter number");
+            }
+            for (int i = 0; i < FnType->parameters.size()-1; i++) {
+                auto TTT=node->arguments[i]->realType;
+                auto TTTT=TypeToItem(FnType->parameters[i+1].type);
+                while (TTT->typeKind == TypeName::ReferenceType&&TTTT->typeKind!=TypeName::ReferenceType) {
+                    TTT=TTT->typePtr;
+                }
+                is_StrongDerivable(TTT, TTTT);//CallExpr中的自动解引用
+            }
+            auto receiver=std::dynamic_pointer_cast<FieldAccessExpr>(node->receiver);
+            auto self_T=FnType->parameters[0].type;
+            receiver->struct_name->scope=node->scope;
+            pre_processor(receiver->struct_name.get(),F,l,f);
+            receiver->struct_name->accept(*this,F,l,f);
+            auto struct_T=receiver->struct_name->realType;
+            auto mu=receiver->struct_name->isMutable;
+            if (self_T->typePtr->is_and&&self_T->typePtr->is_mutable) {//如果是&mut self
+                if (!mu) {
+                    throw std::runtime_error("invalid auto deref");
+                }
+            }
+            //TODO
+
+        } else {
+            if (FnType->parameters.size() != node->arguments.size()) {
+                throw std::runtime_error("there is wrong function parameter number");
+            }
+            for (int i = 0; i < FnType->parameters.size(); i++) {
+                is_StrongDerivable(node->arguments[i]->realType, TypeToItem(FnType->parameters[i].type));
+            }
         }
         node->realType = TypeToItem(FnType->return_type);
     }
@@ -647,6 +964,15 @@ void SemanticCheck::is_StrongDerivable(const std::shared_ptr<Type> &T1, const st
         }
         return;
     }
+    if (canRemoveMut) {
+        if (T1->typeKind == TypeName::ReferenceType && T0->typeKind == TypeName::ReferenceType) {
+            auto Ref_T1 = std::dynamic_pointer_cast<ReferenceType>(T1);
+            auto Ref_T0 = std::dynamic_pointer_cast<ReferenceType>(T0);
+            is_StrongDerivable(Ref_T1->typePtr, Ref_T0->typePtr, false);
+            return;
+        }
+    }
+
     //TODO
     throw std::runtime_error("SemanticCheck::StrongDerivable: type mismatch");
 }
@@ -753,6 +1079,13 @@ void SemanticCheck::is_AllDerivable(std::shared_ptr<Type> &T1, std::shared_ptr<T
         is_NumDerivable(T1, T0);
         return;
     }
+    if (T1->typeKind == TypeName::StructType && T0->typeKind == TypeName::StructType) {
+        auto Struct_T1 = std::dynamic_pointer_cast<StructType>(T1);
+        auto Struct_T0 = std::dynamic_pointer_cast<StructType>(T0);
+        if (Struct_T0->structID == Struct_T1->structID) {
+            return;
+        }
+    }
     throw std::runtime_error("SemanticCheck::Deriving: type mismatch");
 }
 
@@ -795,7 +1128,7 @@ void SemanticCheck::visit(LetStmt *node, ASTNode *F, ASTNode *l, ASTNode *f) {
         auto T1 = node->expr->realType;
         is_StrongDerivable(T1, T0);
     }
-    SymbolEntry val = {nullptr,T0, std::any(), node->is_mutable, false};//此处的is_mutable是指let中是否有mut这个关键词
+    SymbolEntry val = {nullptr,T0, std::any(), node->type->isMutable||node->is_mutable, false};//RustType会最终继承是否mut
     if (node->scope.first->lookup_i(node->identifier, node->scope.second).is_Global) {
         throw std::runtime_error(
             "SemanticCheck::visit: global variable is not allowed to be the same name with let variable");
@@ -895,6 +1228,9 @@ void SemanticCheck::visit(ArrayAccessExpr *node, ASTNode *F, ASTNode *l, ASTNode
     auto E0 = node->array->eval, E1 = node->index->eval;
     node->isMutable = node->array->isMutable;
     node->isVariable = node->array->isVariable;
+    while (T0->typeKind==TypeName::ReferenceType) {
+        T0=T0->typePtr;
+    }//自动解引用
     if (T0->typeKind != TypeName::ArrayType) {
         throw std::runtime_error("SemanticCheck::visit: array index must be an array");
     }
@@ -904,6 +1240,11 @@ void SemanticCheck::visit(ArrayAccessExpr *node, ASTNode *F, ASTNode *l, ASTNode
     auto Basic_T1 = std::static_pointer_cast<BasicType>(T1);
     if (Basic_T1->kind != TypeName::Usize && Basic_T1->kind != TypeName::Uint && Basic_T1->kind != TypeName::Int) {
         throw std::runtime_error("SemanticCheck::visit: array index must be an usize");
+    }
+    if (T0->typePtr->typeKind== TypeName::IdentifierType) {
+        auto T = std::dynamic_pointer_cast<IdentifierType>(T0->typePtr);
+        auto Entry = node->scope.first->lookup_t(T->name, node->scope.second);
+        T0->typePtr = TypeToItem(Entry.type);
     }
     node->realType = T0->typePtr;
     if (E1.has_value()) {
@@ -994,8 +1335,7 @@ void SemanticCheck::visit(BinaryExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) 
     auto Basic_T1 = std::dynamic_pointer_cast<BasicType>(node->left->realType);
     auto Basic_T2 = std::dynamic_pointer_cast<BasicType>(node->right->realType);
     auto E1 = node->left->eval, E2 = node->right->eval;
-    if (node->op == "+" || node->op == "-" || node->op == "*" || node->op == "/" || node->op == "%" || node->op == "<<"
-        || node->op == ">>") {
+    if (node->op == "+" || node->op == "-" || node->op == "*" || node->op == "/" || node->op == "%" ) {
         if (!is_Number(T1)) {
             throw std::runtime_error("SemanticCheck::visit: left operand is not a number");
         }
@@ -1013,13 +1353,26 @@ void SemanticCheck::visit(BinaryExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) 
                 node->eval = lE1 / lE2;
             } else if (node->op == "%") {
                 node->eval = lE1 % lE2;
-            } else if (node->op == "<<") {
+            }
+        }
+    } else if (node->op == "<<"|| node->op == ">>") {
+        if (!is_Number(T1)||!is_Number(T2)) {
+            throw std::runtime_error("SemanticCheck::visit: left operand is not a number");
+        }
+        is_StrongDerivable(std::make_shared<BasicType>(TypeName::Int), T1);
+        if (auto TT=std::dynamic_pointer_cast<BasicType>(T2);!(TT->kind==TypeName::Int||TT->kind==TypeName::Uint||TT->kind==TypeName::U32||TT->kind==TypeName::Usize)) {
+            throw std::runtime_error("SemanticCheck::visit: right operand cannot convert to an usize!!!");
+        }
+        node->realType = T1;
+        if (E1.has_value() && E2.has_value()) {
+            auto lE1 = std::any_cast<long long>(E1), lE2 = std::any_cast<long long>(E2);
+            if (node->op == "<<") {
                 node->eval = lE1 << lE2;
             } else {
                 node->eval = lE1 >> lE2;
             }
         }
-    } else if (node->op == "^" || node->op == "&" || node->op == "|") {
+    }else if (node->op == "^" || node->op == "&" || node->op == "|") {
         if (Basic_T1->kind == TypeName::Bool && Basic_T2->kind == TypeName::Bool) {
             node->realType = T1;
             if (E1.has_value() && E2.has_value()) {
@@ -1161,7 +1514,15 @@ void SemanticCheck::visit(UnaryExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
                 node->eval = ~std::any_cast<bool>(E_son);
             }
         }
-    } //TODO
+    } else if (node->op == "&") {
+        node->realType = std::make_shared<ReferenceType>(node->right->realType);
+    } else if (node->op == "*") {
+        if (T_son->typeKind!=TypeName::ReferenceType) {
+            throw std::runtime_error("invalid deref!");
+        }
+        node->realType = T_son->typePtr;
+        node->isMutable=T_son->is_mutable;
+    }
 }
 
 void SemanticCheck::visit(LiteralExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
@@ -1199,18 +1560,21 @@ void SemanticCheck::visit(LiteralExpr *node, ASTNode *F, ASTNode *l, ASTNode *f)
                 inform.push_back(ch);
             }
         }
-        if (inform.size() > 3 && inform.substr(inform.size() - 3, 3) == "i32") {
+        if (inform.size() > 2 && inform.substr(0 ,2) == "0x") {
+            node->realType = std::make_shared<BasicType>(TypeName::Int);
+            node->eval =  static_cast<long long>(std::stoi(inform, nullptr, 0));
+        }else if (inform.size() > 3 && inform.substr(inform.size() - 3, 3) == "i32") {
             node->realType = std::make_shared<BasicType>(TypeName::I32);
             node->eval = static_cast<long long>(std::stoi(inform.substr(0, inform.size() - 3), nullptr, 0));
         } else if (inform.size() > 3 && inform.substr(inform.size() - 3, 3) == "u32") {
             node->realType = std::make_shared<BasicType>(TypeName::U32);
-            node->eval = static_cast<long long>(std::stoi(inform.substr(0, inform.size() - 3), nullptr, 0));
-        } else if (inform.size() > 3 && inform.substr(inform.size() - 5, 5) == "isize") {
+            node->eval = std::stoll(inform.substr(0, inform.size() - 3), nullptr, 0);
+        } else if (inform.size() > 5 && inform.substr(inform.size() - 5, 5) == "isize") {
             node->realType = std::make_shared<BasicType>(TypeName::Isize);
             node->eval = static_cast<long long>(std::stoi(inform.substr(0, inform.size() - 5), nullptr, 0));
-        } else if (inform.size() > 3 && inform.substr(inform.size() - 5, 5) == "usize") {
+        } else if (inform.size() > 5 && inform.substr(inform.size() - 5, 5) == "usize") {
             node->realType = std::make_shared<BasicType>(TypeName::Usize);
-            node->eval = static_cast<long long>(std::stoi(inform.substr(0, inform.size() - 5), nullptr, 0));
+            node->eval = std::stoll(inform.substr(0, inform.size() - 5), nullptr, 0);
         } else {
             //不存在后缀的integer，那么就需要推导类型了
             auto res = std::stoll(inform);
@@ -1260,6 +1624,32 @@ void SemanticCheck::visit(StructExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) 
 
 void SemanticCheck::visit(AssignmentExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
     auto T1 = node->left->realType, T2 = node->right->realType;
+    if (T1->typeKind==TypeName::ArrayType&&T2->typeKind==TypeName::ArrayType) {
+        T1=std::dynamic_pointer_cast<ArrayType>(T1);
+        T2=std::dynamic_pointer_cast<ArrayType>(T2);
+        auto E1 = node->left->eval, E2 = node->right->eval;
+        if (node->op == "=") {
+            if (!node->left->isMutable) {
+                throw std::runtime_error("left value cannot be modified here!");
+            }
+            is_StrongDerivable(T2, T1); //right转换成left的类型,那么应该right比left更大才对呀
+            node->realType = std::make_shared<UnitType>();
+            return;
+        }
+    }
+    if (T1->typeKind==TypeName::StructType&&T2->typeKind==TypeName::StructType) {
+        T1=std::dynamic_pointer_cast<StructType>(T1);
+        T2=std::dynamic_pointer_cast<StructType>(T2);
+        auto E1 = node->left->eval, E2 = node->right->eval;
+        if (node->op == "=") {
+            if (!node->left->isMutable) {
+                throw std::runtime_error("left value cannot be modified here!");
+            }
+            is_StrongDerivable(T2, T1); //right转换成left的类型,那么应该right比left更大才对呀
+            node->realType = std::make_shared<UnitType>();
+            return;
+        }
+    }
     if (T1->typeKind != TypeName::BasicType || T2->typeKind != TypeName::BasicType) {
         throw std::runtime_error("ridiculous types around the binary expression");
     }
@@ -1324,8 +1714,8 @@ void SemanticCheck::visit(ArrayInitExpr *node, ASTNode *F, ASTNode *l, ASTNode *
         }
     }
     node->realType = std::make_shared<ArrayType>(T, std::make_shared<LiteralExpr>(std::to_string(
-                         static_cast<long long>(array_children.size())), std::make_shared<BasicType>(TypeName::Usize),
-                     static_cast<long long>(array_children.size())));
+                         static_cast<long long>(node->elements.size())), std::make_shared<BasicType>(TypeName::Usize),
+                     static_cast<long long>(node->elements.size())));
     if (strtok) {
         node->eval = array_children;
     }
@@ -1409,14 +1799,33 @@ void SemanticCheck::visit(RustType *node, ASTNode *F, ASTNode *l, ASTNode *f) {
         node->realType = Entry.type;
     } else if (noder->typeKind == TypeName::ArrayType) {
         auto Array_T = std::dynamic_pointer_cast<ArrayType>(noder);
-        Array_T->accept(*this, node, l, f);
-        //RustType中本身已经维护好了realType(parser中),所以我后续就没有什么必要再往后写了
+        Array_T->accept(*this, node, l, f,node->scope);
+    }else if (noder->typeKind == TypeName::ReferenceType) {
+        auto Ref_T = std::dynamic_pointer_cast<ReferenceType>(noder);
+        Ref_T->accept(*this, node, l, f,node->scope);
+    }//RustType中本身已经维护好了realType(parser中),所以我后续就没有什么必要再往后写了
+}
+
+void SemanticCheck::TypeCheck(ReferenceType *node, ASTNode *F, ASTNode *l, ASTNode *f,std::pair<SymbolTable*,ASTNode*> scope) {
+    node->typePtr->is_mutable=node->is_mutable;
+    if (node->typePtr->typeKind==TypeName::IdentifierType) {
+        auto T = std::dynamic_pointer_cast<IdentifierType>(node->typePtr);
+        auto Entry = scope.first->lookup_t(T->name,scope.second);
+        node->typePtr=TypeToItem(Entry.type);
+    }else {
+        node->typePtr->accept(*this,F,l,f,scope);
     }
 }
 
-void SemanticCheck::TypeCheck(ArrayType *node, ASTNode *F, ASTNode *l, ASTNode *f) {
+void SemanticCheck::TypeCheck(ArrayType *node, ASTNode *F, ASTNode *l, ASTNode *f,std::pair<SymbolTable*,ASTNode*> scope) {
     if (node->typePtr != nullptr) {
-        node->typePtr->accept(*this, F, l, f);
+        node->typePtr->accept(*this, F, l, f,scope);
+    }
+    auto noder=node->typePtr;
+    if (noder->typeKind == TypeName::IdentifierType) {
+        auto T = std::dynamic_pointer_cast<IdentifierType>(noder);
+        auto Entry = scope.first->lookup_t(T->name, scope.second);
+        node->typePtr = TypeToItem(Entry.type);
     }
     node->length->scope = F->scope;
     pre_processor(node->length.get(), F, l, f);
@@ -1433,19 +1842,21 @@ void SemanticCheck::TypeCheck(ArrayType *node, ASTNode *F, ASTNode *l, ASTNode *
     }
 }
 
-void SemanticCheck::TypeCheck(IdentifierType *node, ASTNode *F, ASTNode *l, ASTNode *f) {
+void SemanticCheck::TypeCheck(IdentifierType *node, ASTNode *F, ASTNode *l, ASTNode *f,std::pair<SymbolTable*,ASTNode*> scope) {
+    // auto Entry = scope.first->lookup_t(node->name,scope.second);
+    // node=Entry.type;
 }
 
-void SemanticCheck::TypeCheck(StructType *node, ASTNode *F, ASTNode *l, ASTNode *f) {
+void SemanticCheck::TypeCheck(StructType *node, ASTNode *F, ASTNode *l, ASTNode *f,std::pair<SymbolTable*,ASTNode*> scope) {
 }
 
-void SemanticCheck::TypeCheck(FunctionType *node, ASTNode *F, ASTNode *l, ASTNode *f) {
+void SemanticCheck::TypeCheck(FunctionType *node, ASTNode *F, ASTNode *l, ASTNode *f,std::pair<SymbolTable*,ASTNode*> scope) {
 }
 
-void SemanticCheck::TypeCheck(BasicType *node, ASTNode *F, ASTNode *l, ASTNode *f) {
+void SemanticCheck::TypeCheck(BasicType *node, ASTNode *F, ASTNode *l, ASTNode *f,std::pair<SymbolTable*,ASTNode*> scope) {
 }
 
-void SemanticCheck::TypeCheck(SelfType *node, ASTNode *F, ASTNode *l, ASTNode *f) {
+void SemanticCheck::TypeCheck(SelfType *node, ASTNode *F, ASTNode *l, ASTNode *f,std::pair<SymbolTable*,ASTNode*> scope) {
 }
 
 void SemanticCheck::loadBuiltin(ASTNode *node) {

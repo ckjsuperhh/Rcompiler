@@ -144,7 +144,7 @@ struct Type  {
     explicit Type(const TypeName t,std::shared_ptr<Type> Ptr=nullptr):typeKind(t),typePtr(std::move(Ptr)){}
     [[nodiscard]] virtual std::vector<Element> get_children() const =0;
     [[nodiscard]] virtual std::string toString() const = 0;
-    virtual void accept(SemanticCheck&,ASTNode*,ASTNode*,ASTNode*)=0;
+    virtual void accept(SemanticCheck&,ASTNode*,ASTNode*,ASTNode*,std::pair<SymbolTable*,ASTNode*>)=0;
 };//这样设计直接可以使用ASTNode中的get_type()
 
 struct TypeType:Type {
@@ -154,11 +154,13 @@ struct TypeType:Type {
         res.emplace_back(this->typePtr.get());
         return res;
     }
-    explicit TypeType(const std::shared_ptr<Type> &t=nullptr):Type(TypeName::TypeType,t){}
+    explicit TypeType(const std::shared_ptr<Type> &t=nullptr,bool is_mut=false):Type(TypeName::TypeType,t) {
+        this->is_mutable=is_mut;
+    }
     [[nodiscard]] std::string toString() const override {
         return "Type"; // 表示“Type 类型”
     }
-    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
+    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*>) override ;
     bool equals(const Type *other) const override {
         if (other->typeKind!=this->typeKind) {
             return false;
@@ -188,7 +190,7 @@ struct BasicType : Type {
         }
         return false; //如果dynamic_cast失败，则必定不是相同的类型
     }
-    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
+    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*> scope) override ;
     [[nodiscard]] std::string toString() const override {
         // 需根据你的 TypeName 枚举值调整，确保与实际定义匹配
         switch(kind) {
@@ -215,7 +217,7 @@ struct ArrayType : Type {
         assert(this->typePtr != nullptr);
         assert(dimension > 0);
     }
-    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
+    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*>) override ;
     bool equals(const Type *other) const override{
         if (auto *array = dynamic_cast<const ArrayType *>(other)) {
             return dimension == array->dimension &&
@@ -265,7 +267,7 @@ struct IdentifierType : Type {//包含了单纯的struct,enum等信息
     [[nodiscard]] std::string toString() const override {
         return name; // 如 "Person"、"Color"
     }
-    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
+    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*>) override ;
     [[nodiscard]] std::vector<Element> get_children() const override ;
 };
 
@@ -279,7 +281,7 @@ struct SelfType:Type {
         return "Self";
     }
     [[nodiscard]] std::vector<Element> get_children() const override ;
-    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
+    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*>) override ;
 };
 
 struct Param {
@@ -288,13 +290,14 @@ struct Param {
 };
 
 struct FunctionType : Type {
+    std::string name;
     std::vector<Param> parameters;
     std::shared_ptr<SelfType> selfType;
     std::shared_ptr<Type> return_type;
-    explicit FunctionType(std::vector<Param> p, std::shared_ptr<Type> r,std::shared_ptr<SelfType> s=nullptr):
-        Type(TypeName::FunctionType), parameters(std::move(p)), return_type(std::move(r)),selfType(std::move(s)) {
+    explicit FunctionType(std::vector<Param> p, std::shared_ptr<Type> r,std::string name="",std::shared_ptr<SelfType> s=nullptr):
+        Type(TypeName::FunctionType), parameters(std::move(p)), return_type(std::move(r)),selfType(std::move(s)) ,name(std::move(name)){
     }
-    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
+    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*>) override ;
     bool equals(const Type *other) const override {
         if (auto *func = dynamic_cast<const FunctionType *>(other)) {
             if (return_type->equals(func->return_type.get()) && parameters.size() == func->parameters.size()) {
@@ -342,7 +345,7 @@ struct ErrorType : Type {
         return false;
     }//只要是错误，一定判断失败
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
+    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*>) override ;
     // 实现 toString：明确标识错误类型
     [[nodiscard]] std::string toString() const override {
         return "ErrorType";
@@ -358,7 +361,7 @@ struct AndStrType:Type {
           return "&str";
       }
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
+    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*>) override ;
 };
 
 
@@ -371,7 +374,7 @@ struct UnitType : Type {
     [[nodiscard]] std::vector<Element> get_children() const override {
         return {};
     }
-    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
+    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*>) override ;
     // 实现 toString：返回单元类型标识（符合 Rust 习惯）
     [[nodiscard]] std::string toString() const override {
         return "()";
@@ -392,7 +395,7 @@ struct NeverType : Type {
     [[nodiscard]] std::string toString() const override {
         return "!";
     }
-    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
+    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*>) override ;
 };
 
 struct EnumType : Type {
@@ -412,7 +415,7 @@ struct EnumType : Type {
         }
         return false;
     }
-    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
+    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*>) override ;
     [[nodiscard]] std::vector<Element> get_children() const override {
         std::vector<Element> children;
         // 添加枚举基本信息
@@ -443,7 +446,9 @@ struct EnumType : Type {
 };
 
 struct ReferenceType : Type {
-    explicit ReferenceType():Type(TypeName::ReferenceType){}
+    explicit ReferenceType(std::shared_ptr<Type> t,bool is_mut=false):Type(TypeName::ReferenceType,std::move(t)) {
+        this->is_mutable=is_mut;
+    }
     bool equals(const Type *other) const override {
         return false;
     }
@@ -453,6 +458,7 @@ struct ReferenceType : Type {
     [[nodiscard]] std::string toString() const override {
         return "ReferenceType";
     }
+    void accept(SemanticCheck &, ASTNode *, ASTNode *, ASTNode *,std::pair<SymbolTable*,ASTNode*>) override ;
 };
 
 struct StructType:Type {
@@ -473,7 +479,7 @@ struct StructType:Type {
         }
         return false;
     }
-    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
+    void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*>) override ;
     [[nodiscard]] std::vector<Element> get_children() const override {
         std::vector<Element> children;
         // 添加结构体基本信息
@@ -493,8 +499,10 @@ struct StructType:Type {
 };
 
 struct RustType : ASTNode {
-    explicit RustType(std::shared_ptr<Type> t):
-    ASTNode(TypeName::RustType,std::move(t)){}
+    explicit RustType(std::shared_ptr<Type> t,bool is_mut=false):
+    ASTNode(TypeName::RustType,std::move(t)) {
+        this->isMutable=is_mut;
+    }
     [[nodiscard]] std::vector<Element> get_children() const override {
         std::vector<Element> children;
         children.emplace_back("RustType:");
@@ -583,8 +591,9 @@ struct UnaryExpr : Expr {
     std::string op;
     std::shared_ptr<Expr> right;
 
-    UnaryExpr(std::string op, std::shared_ptr<Expr> right,std::shared_ptr<Type> t=nullptr)
+    UnaryExpr(std::string op, std::shared_ptr<Expr> right,bool is_mutable=false,std::shared_ptr<Type> t=nullptr)
         : Expr(TypeName::UnaryExpr,std::move(t)), op(std::move(op)), right(std::move(right)) {
+        this->isMutable=is_mutable;
     }
     
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;

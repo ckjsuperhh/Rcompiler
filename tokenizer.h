@@ -41,6 +41,18 @@
         GreaterEqual, // >=
         As,
         OrOr,
+        Right,
+        Left,
+        AndEqual,
+        OrEqual,
+        XorEqual,
+        MinusEqual,
+        SlashEqual,
+        PlusEqual,
+        StarEqual,
+        RightEqual,
+        LeftEqual,
+        ModEqual,
 
         // 标点符号
         LParen, // (
@@ -86,7 +98,7 @@
         Whitespace, // 空白（原WHITESPACE）
         Invalid,// 无效 token（原INVALID）
         Integer, EqEq, Mod, Unit , self, Self, Andand,AndStr
-        , MinusEqual, SlashEqual,PlusEqual,StarEqual, Basic,Eof // 文件结束
+        , Basic,Eof // 文件结束
 
 
 
@@ -337,14 +349,17 @@
             boost::regex rreturn(R"(^\b(return)\b)");
             boost::regex mmut(R"(^\b(mut)\b)");
             boost::regex wwhile(R"(^\b(while)\b)");
-            boost::regex identifier(R"(^[a-zA-Z][a-zA-Z0-9_]*)");
+            boost::regex identifier(R"(^[a-zA-Z_][a-zA-Z0-9_]*)");
             boost::regex integer(R"(^\d+(?:_\d+)*(?:_?(?:u32|i32|usize|isize))?)");
-            boost::regex op(R"(^(==|!=|>=|<=|\+|\-|\*|\/|%|<|>|=))");
+            boost::regex op(R"(^(%=|>>=|<<=|==|!=|>=|<=|\+|\-|\*|\/|%|<<|>>|<|>|=))");
             boost::regex arrow(R"(^->)");
             boost::regex sle(R"(^/=)");
             boost::regex ste(R"(^\*=)");
             boost::regex pe(R"(^\+=)");
             boost::regex me(R"(^\-=)");
+            boost::regex ae(R"(^\&=)");
+            boost::regex xe(R"(^\^=)");
+            boost::regex oe(R"(^\|=)");
             boost::regex aand(R"(^\&)");
             boost::regex andand(R"(^&&)");
             boost::regex lparen(R"(^\()");
@@ -365,8 +380,25 @@
             boost::regex unit(R"(^\(\)$)");
             boost::regex andstr(R"(&str)");
             boost::regex caret_re (R"(\^)");
+            boost::regex aha (R"(\!)");
+            boost::regex hexRegex(R"(0x[0-9a-fA-F]+)");
             boost::smatch match;
             std::vector<Token> waiting_tokens;
+            if (boost::regex_search(start, end, match,hexRegex, boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::Integer, match.str());
+            }
+            if (boost::regex_search(start, end, match,ae, boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::AndEqual, match.str());
+            }
+            if (boost::regex_search(start, end, match,oe, boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::OrEqual, match.str());
+            }
+            if (boost::regex_search(start, end, match,xe, boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::XorEqual, match.str());
+            }
+            if (boost::regex_search(start, end, match,aha, boost::match_continuous)) {
+                waiting_tokens.emplace_back(TokenType::Not, match.str());
+            }
             if (boost::regex_search(start, end, match,caret_re, boost::match_continuous)) {
                 waiting_tokens.emplace_back(TokenType::Xor, match.str());
             }
@@ -504,6 +536,16 @@
                     ty=TokenType::Less;
                 } else if (op_str == ">") {
                     ty = TokenType::Greater;
+                }else if (op_str==">>") {
+                    ty = TokenType::Right;
+                }else if (op_str=="<<") {
+                    ty = TokenType::Left;
+                }else if (op_str==">>=") {
+                    ty = TokenType::RightEqual;
+                }else if (op_str=="<<=") {
+                    ty = TokenType::LeftEqual;
+                }else if (op_str=="%=") {
+                    ty = TokenType::ModEqual;
                 }
                 // 若都不匹配，保持默认的 Invalid
                 waiting_tokens.emplace_back(ty, match.str());

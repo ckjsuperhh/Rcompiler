@@ -25,6 +25,7 @@ enum class Preference {
     AND,
     XOR, // ^  （新增：异或）
     COMPARISON , // <, >, <=, >=
+    MOVE,
     TERM , // +, -
     FACTOR , // *, /, %
     AS,
@@ -175,6 +176,8 @@ static std::string get_type_str(TokenType type) {
             rules[static_cast<size_t>(TokenType::LBracket)].prefix = &Parser::parse_array;
             rules[static_cast<size_t>(TokenType::Not)].prefix = &Parser::parse_unary;
             rules[static_cast<size_t>(TokenType::Minus)].prefix = &Parser::parse_unary;
+            rules[static_cast<size_t>(TokenType::And)].prefix = &Parser::parse_unary;
+            rules[static_cast<size_t>(TokenType::Star)].prefix = &Parser::parse_unary;
             rules[static_cast<size_t>(TokenType::LParen)].prefix = &Parser::parse_group;
             rules[static_cast<size_t>(TokenType::LBrace)].prefix = &Parser::parse_block;
             rules[static_cast<size_t>(TokenType::self)].prefix = &Parser::parse_path;
@@ -184,6 +187,7 @@ static std::string get_type_str(TokenType type) {
             rules[static_cast<size_t>(TokenType::Loop)].prefix = &Parser::parse_loop;
             rules[static_cast<size_t>(TokenType::If)].prefix = &Parser::parse_if;
             rules[static_cast<size_t>(TokenType::Underscore)].prefix= &Parser::parse_underscore;
+            rules[static_cast<size_t>(TokenType::Self)].prefix = &Parser::parse_path;
 
 
             rules[static_cast<size_t>(TokenType::LParen)].infix = &Parser::parse_call;
@@ -232,12 +236,28 @@ static std::string get_type_str(TokenType type) {
             rules[static_cast<size_t>(TokenType::MinusEqual)].precedence=Preference::ASSIGNMENT;
             rules[static_cast<size_t>(TokenType::StarEqual)].infix = &Parser::parse_assignment;
             rules[static_cast<size_t>(TokenType::StarEqual)].precedence=Preference::ASSIGNMENT;
+            rules[static_cast<size_t>(TokenType::AndEqual)].infix = &Parser::parse_assignment;
+            rules[static_cast<size_t>(TokenType::AndEqual)].precedence=Preference::ASSIGNMENT;
             rules[static_cast<size_t>(TokenType::SlashEqual)].infix = &Parser::parse_assignment;
             rules[static_cast<size_t>(TokenType::SlashEqual)].precedence=Preference::ASSIGNMENT;
+            rules[static_cast<size_t>(TokenType::XorEqual)].infix = &Parser::parse_assignment;
+            rules[static_cast<size_t>(TokenType::XorEqual)].precedence=Preference::ASSIGNMENT;
+            rules[static_cast<size_t>(TokenType::OrEqual)].infix = &Parser::parse_assignment;
+            rules[static_cast<size_t>(TokenType::OrEqual)].precedence=Preference::ASSIGNMENT;
             rules[static_cast<size_t>(TokenType::OrOr)].infix = &Parser::parse_binary;
             rules[static_cast<size_t>(TokenType::OrOr)].precedence=Preference::OROR;
             rules[static_cast<size_t>(TokenType::Andand)].infix = &Parser::parse_binary;
             rules[static_cast<size_t>(TokenType::Andand)].precedence=Preference::ANDAND;
+            rules[static_cast<size_t>(TokenType::Left)].infix = &Parser::parse_binary;
+            rules[static_cast<size_t>(TokenType::Left)].precedence=Preference::MOVE;
+            rules[static_cast<size_t>(TokenType::Right)].infix = &Parser::parse_binary;
+            rules[static_cast<size_t>(TokenType::Right)].precedence=Preference::MOVE;
+            rules[static_cast<size_t>(TokenType::RightEqual)].infix = &Parser::parse_assignment;
+            rules[static_cast<size_t>(TokenType::RightEqual)].precedence=Preference::ASSIGNMENT;
+            rules[static_cast<size_t>(TokenType::LeftEqual)].infix = &Parser::parse_assignment;
+            rules[static_cast<size_t>(TokenType::LeftEqual)].precedence=Preference::ASSIGNMENT;
+            rules[static_cast<size_t>(TokenType::ModEqual)].infix = &Parser::parse_assignment;
+            rules[static_cast<size_t>(TokenType::ModEqual)].precedence=Preference::ASSIGNMENT;
 
 
 
@@ -330,7 +350,7 @@ static std::string get_type_str(TokenType type) {
                 op="!=";
                 min_precedence = Preference::EQUALITY;
                 break;
-            case TokenType::Andand:
+                case TokenType::Andand:
                 op="&&";
                 min_precedence = Preference::ANDAND;
                 break;
@@ -345,6 +365,14 @@ static std::string get_type_str(TokenType type) {
                 case TokenType::Or:
                 op="|";
                 min_precedence = Preference::OR;
+                break;
+                case TokenType::Right:
+                op=">>";
+                min_precedence = Preference::MOVE;
+                break;
+                case TokenType::Left:
+                op="<<";
+                min_precedence = Preference::MOVE;
                 break;
                 default:
                 throw std::runtime_error("Unexpected op");
@@ -398,6 +426,30 @@ static std::string get_type_str(TokenType type) {
                 break;
                 case TokenType::Equal:
                 op="=";
+                consume();
+                break;
+                case TokenType::AndEqual:
+                op="&=";
+                consume();
+                break;
+                case TokenType::OrEqual:
+                op="|=";
+                consume();
+                break;
+                case TokenType::XorEqual:
+                op="^=";
+                consume();
+                break;
+                case TokenType::LeftEqual:
+                op="<<=";
+                consume();
+                break;
+                case TokenType::RightEqual:
+                op=">>=";
+                consume();
+                break;
+                case TokenType::ModEqual:
+                op="%=";
                 consume();
                 break;
                 default:
@@ -458,6 +510,11 @@ static std::string get_type_str(TokenType type) {
     std::shared_ptr<Expr> parse_unary() {
         auto op_type = peek().type;
         consume();
+        bool is_mut=false;
+        if (peek().type == TokenType::Mut) {
+            is_mut=true;
+            consume();
+        }
         // 一元运算符的操作数优先级需高于 UNARY（确保正确解析嵌套，如 !a + b 不会被解析为 !(a + b)）
         auto operand = parse_expression(Preference::UNARY);
         switch (op_type) {
@@ -465,6 +522,10 @@ static std::string get_type_str(TokenType type) {
                 return std::make_shared<UnaryExpr>("!", std::move(operand));
             case TokenType::Minus:
                 return std::make_shared<UnaryExpr>("-", std::move(operand));
+            case TokenType::And:
+                return std::make_shared<UnaryExpr>("&", std::move(operand),is_mut);
+            case TokenType::Star:
+                return std::make_shared<UnaryExpr>("*", std::move(operand));
             default:
                 throw std::runtime_error("Unsupported unary operator");
         }
@@ -673,27 +734,37 @@ static std::string get_type_str(TokenType type) {
                     if (check(TokenType::RParen)) {
                         break;
                     }
+                    bool is_mu=false;
+                    if (match(TokenType::Mut)) {
+                        is_mu=true;
+                    }
                     expect(TokenType::Identifier);
                     t.name=peek().value;
                     consume();
                     expect(TokenType::Colon);
                     consume();
                     t.type=parse_type();
+                    t.type->is_mutable|=is_mu;//聪明麻了！
                     params.emplace_back(t);
                 }
             }else {
                 do {
                     if (check(TokenType::RParen)) {
-                    break;
-                }
-                expect(TokenType::Identifier);
-                t.name=peek().value;
-                consume();
-                expect(TokenType::Colon);
-                consume();
-                t.type=parse_type();
-                params.emplace_back(t);
-                }while (match(TokenType::Comma));
+                        break;
+                    }
+                    bool is_mu=false;
+                    if (match(TokenType::Mut)) {
+                        is_mu=true;
+                    }
+                    expect(TokenType::Identifier);
+                    t.name = peek().value;
+                    consume();
+                    expect(TokenType::Colon);
+                    consume();
+                    t.type = parse_type();
+                    t.type->is_mutable|=is_mu;
+                    params.emplace_back(t);
+                } while (match(TokenType::Comma));
             }
             expect(TokenType::RParen);
             consume();
@@ -866,6 +937,7 @@ static std::string get_type_str(TokenType type) {
                 auto type_annotation = parse_type();
                 elements.emplace_back(id,std::move(type_annotation));
             }while (match(TokenType::Comma));
+            match(TokenType::RBrace);
         }
         return std::make_shared<StructStmt>(name,elements);
     }
@@ -992,15 +1064,26 @@ static std::string get_type_str(TokenType type) {
         return std::make_shared<UnitType>();
     }
 
-    std::shared_ptr<Type> parse_type(bool inner=true) {
-        bool is_and=false;
-        bool is_mutable=false;
-        if (match(TokenType::And)) {
-            is_and=true;
-        }
+    std::shared_ptr<Type> parse_ref_type() {
+        consume();
+        bool is_mut=false;
         if (match(TokenType::Mut)) {
-            is_mutable=true;
+            is_mut=true;
         }
+        auto type=parse_type(false);
+        return std::make_shared<ReferenceType>(type,is_mut);
+    }
+
+
+    std::shared_ptr<Type> parse_type(bool inner=true) {
+        // bool is_and=false;
+        // bool is_mutable=false;
+        // if (match(TokenType::And)) {
+        //     is_and=true;
+        // }
+        // if (match(TokenType::Mut)) {
+        //     is_mutable=true;
+        // }
         std::shared_ptr<Type> type;
         switch (peek().type) {
             case TokenType::LBracket:
@@ -1018,30 +1101,33 @@ static std::string get_type_str(TokenType type) {
             case TokenType::AndStr:
                 type=parse_andstr_type();
                 break;
+            case TokenType::And:
+                type=parse_ref_type();
+                break;
             default:
                 type= parse_basic_type();
         }
-        type->is_and=is_and;
-        type->is_mutable=is_mutable;
+        // type->is_and=is_and;
+        // type->is_mutable=is_mutable;
         if (inner) {
-            return std::make_shared<TypeType>(std::move(type));
+            return std::make_shared<TypeType>(std::move(type),type->is_mutable);
         }
         return type;
     }
 
     std::shared_ptr<RustType> parse_Rust_type() {
-        bool is_and=false;
-        bool is_mutable=false;
-        if (match(TokenType::And)) {
-            is_and=true;
-        }
-        if (match(TokenType::Mut)) {
-            is_mutable=true;
-        }
+        // bool is_and=false;
+        // bool is_mutable=false;
+        // if (match(TokenType::And)) {
+        //     is_and=true;
+        // }
+        // if (match(TokenType::Mut)) {
+        //     is_mutable=true;
+        // }
         std::shared_ptr<Type> type=parse_type();
-        type->is_and=is_and;
-        type->is_mutable=is_mutable;
-        return std::make_shared<RustType>(type);
+        // type->is_and=is_and;
+        // type->is_mutable=is_mutable;
+        return std::make_shared<RustType>(type,type->is_mutable);
     }
 
 std::shared_ptr<ASTNode> parse() {

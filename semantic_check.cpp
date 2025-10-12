@@ -1360,7 +1360,8 @@ void SemanticCheck::visit(BinaryExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) 
             throw std::runtime_error("SemanticCheck::visit: left operand is not a number");
         }
         is_StrongDerivable(std::make_shared<BasicType>(TypeName::Int), T1);
-        if (auto TT=std::dynamic_pointer_cast<BasicType>(T2);!(TT->kind==TypeName::Int||TT->kind==TypeName::Uint||TT->kind==TypeName::U32||TT->kind==TypeName::Usize)) {
+        if (auto TT=std::dynamic_pointer_cast<BasicType>(T2);!(TT->kind==TypeName::Int||TT->kind==TypeName::Uint
+            ||TT->kind==TypeName::U32||TT->kind==TypeName::Usize||TT->kind==TypeName::I32||TT->kind==TypeName::Isize||TT->kind==TypeName::Iint)) {
             throw std::runtime_error("SemanticCheck::visit: right operand cannot convert to an usize!!!");
         }
         node->realType = T1;

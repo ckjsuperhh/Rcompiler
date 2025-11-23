@@ -3,19 +3,24 @@
     <words>
       <w>andand</w>
       <w>andstr</w>
+      <w>ashr</w>
       <w>cchar</w>
       <w>constnode</w>
       <w>conststmts</w>
       <w>enumnode</w>
       <w>fnnode</w>
+      <w>getelementptr</w>
       <w>grandgrandson</w>
       <w>iint</w>
       <w>implnode</w>
       <w>isize</w>
+      <w>lshr</w>
       <w>oror</w>
       <w>strtok</w>
       <w>structname</w>
       <w>structnode</w>
+      <w>udiv</w>
+      <w>urem</w>
       <w>wxzheng</w>
     </words>
   </dictionary>

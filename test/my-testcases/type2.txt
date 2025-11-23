@@ -1,3 +1,0 @@
-//Semantic Error:type mismatch
-const b:[i32;a]=[a];
-const a:usize=1;

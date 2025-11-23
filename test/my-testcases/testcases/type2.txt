@@ -1,0 +1,5 @@
+//Semantic Error:type mismatch
+fn main(){
+const b:[i32;a]=[a ];
+const a:usize=1;
+}

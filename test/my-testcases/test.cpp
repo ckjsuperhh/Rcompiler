@@ -1,6 +1,3 @@
-//
-// Created by ckjsuperhh6602 on 25-9-25.
-//
 #include <fstream>
 
 #include "../../parser.h"
@@ -10,10 +7,7 @@
 
 std::string openFile(std::string path)
 {
-    path="../../test/testcases/"+path;
-    // std::ifstream file(path);
-    // std::string input((std::istreambuf_iterator(file)),std::istreambuf_iterator<char>());
-
+    path="../../../test/my-testcases/testcases/"+path;
     freopen(path.c_str(),"r",stdin);
     int in;
     std::string code;
@@ -21,18 +15,8 @@ std::string openFile(std::string path)
         code.push_back(static_cast<char>(in));
     fclose(stdin);
     std::cin.clear();
-    // code.push_back('\n');
+    code.push_back('\n');
     return code;
-}
-
-void runParser(std::string path)
-{
-    const auto code=openFile(path);
-    Tokenizer t(code);
-    const auto v=t.tokenize();
-    // t.ShowOutput(v);
-    Parser p(v);
-    auto root=p.parse();
 }
 
 void runSemantic(std::string path)
@@ -47,5 +31,10 @@ void runSemantic(std::string path)
 }
 
 
-TEST(Parser, TYPE1){EXPECT_NO_THROW(runParser("type1.txt"));}
-TEST(Semantic, TYPE1){EXPECT_ANY_THROW(runSemantic("type1.txt"));}
+TEST(semantic3,type1) {
+    EXPECT_ANY_THROW(runSemantic("type1.txt"));
+}
+
+TEST(semantic3,type2) {
+    EXPECT_ANY_THROW(runSemantic("type2.txt"));
+}

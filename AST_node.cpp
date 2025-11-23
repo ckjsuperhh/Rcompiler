@@ -1199,3 +1199,30 @@ void LetStmt::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f)
 void Program::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f) {
     return visitor.visit(this, F, l, f);
 }
+
+void LiteralExpr::IR(ASTNode*r,ASTNode*l) {
+    return generateIr(this,r,l);
+}
+
+void ArrayAccessExpr::IR(ASTNode*r,ASTNode*l) {
+    return generateIr(this,r,l);
+}
+
+void ArrayInitExpr::IR(ASTNode*r,ASTNode*l) {
+    return generateIr(this,r,l);
+}
+
+void ArraySimplifiedExpr::IR(ASTNode*r,ASTNode*l) {
+    return generateIr(this,r,l);
+}
+
+void UnitExpr::IR(ASTNode*r,ASTNode*l) {
+    return generateIr(this,r,l);
+}
+
+void BinaryExpr::IR(ASTNode*r,ASTNode*l) {
+    return generateIr(this,r,l);
+}
+
+
+

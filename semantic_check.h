@@ -91,7 +91,7 @@ struct SymbolTable {
 class SemanticCheck {
 
 public:
-    void resolveDependency(ASTNode *node, std::shared_ptr<Type> SelfType);
+    void resolveDependency(ASTNode *node);
 
     void pre_processor(ASTNode *node,ASTNode* F,ASTNode* l,ASTNode* f);
 

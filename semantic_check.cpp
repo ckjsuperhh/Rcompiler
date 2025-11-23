@@ -100,7 +100,7 @@ std::shared_ptr<StructType> clone(const std::shared_ptr<StructType>& t) {
     return std::make_shared<StructType>(t->structID,t->structName,t->field,t->FieldNum,t->fields);
 }
 
-void SemanticCheck::resolveDependency(ASTNode *node, std::shared_ptr<Type> SelfType = nullptr) {
+void SemanticCheck::resolveDependency(ASTNode *node) {
     std::vector<std::string> itemName;
     std::unordered_map<std::string, ASTNode *> itemTable;
     auto v = node->get_children();
@@ -534,6 +534,7 @@ void SemanticCheck::resolveDependency(ASTNode *node, std::shared_ptr<Type> SelfT
 
 
 void SemanticCheck::pre_processor(ASTNode *node, ASTNode *F, ASTNode *l, ASTNode *f) {
+    node->LoopPtr=l;//在这个地方维护一下loop应该就可以了
     auto v = node->get_children();
     if (node->realType != nullptr) {
         if (node->realType->typeKind != TypeName::RustType) {
@@ -554,7 +555,7 @@ void SemanticCheck::pre_processor(ASTNode *node, ASTNode *F, ASTNode *l, ASTNode
     if (node->get_type() == TypeName::Program || node->get_type() == TypeName::BlockExpr)
         resolveDependency(node);
     if (node->get_type() == TypeName::WhileExpr || node->get_type() == TypeName::LoopExpr) {
-        l = node;
+        l = node;//这个地方把此处节点设为loop开始的地方,那么往下传的l都会指向node,所以LoopPtr就正确维护了
     }
     if (node->get_type() == TypeName::FnStmt) {
         f = node;
@@ -972,8 +973,6 @@ void SemanticCheck::is_StrongDerivable(const std::shared_ptr<Type> &T1, const st
             return;
         }
     }
-
-    //TODO
     throw std::runtime_error("SemanticCheck::StrongDerivable: type mismatch");
 }
 
@@ -1784,6 +1783,14 @@ void SemanticCheck::visit(AsExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
                 node->eval = std::any_cast<long long>(E2);
             } else if (Basic_T2->kind == TypeName::Bool) {
                 node->eval = std::any_cast<long long>(E2);
+            }
+        }
+    }
+    if (node->type ->realType->typeKind == TypeName::BasicType) {
+        auto B_type= std::dynamic_pointer_cast<BasicType>(node->type->realType);
+        if (B_type->kind == TypeName::Usize||B_type->kind==TypeName::U32||B_type->kind==TypeName::Uint) {
+            if (node->expr->eval.has_value()&&any_cast<long long>(node->expr->eval)<0) {
+                throw std::runtime_error("SemanticCheck::visit: convert to usize but a negative number!");
             }
         }
     }

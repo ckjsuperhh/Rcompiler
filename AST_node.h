@@ -14,15 +14,13 @@
 #include <vector>
 
 #include "semantic_check.h"
-#include "semantic_check.h"
-#include "semantic_check.h"
-#include "semantic_check.h"
+#include "ir.h"
 struct ASTNode;
 struct Expr;
 struct Stmt;
 class SemanticCheck;
 enum class TypeName;
-
+inline int variableNum=0;
 enum class TypeName {
     Float, Bool, Void,
     BasicType,
@@ -126,11 +124,20 @@ struct ASTNode {
     bool is_hasAbsoluteBreak=false;
     bool isMutable=false;
     bool isVariable=false;
+    ASTNode* LoopPtr=nullptr;
+    unsigned long long variableID = 0;
+    std::string irRes;
+    std::string irRes_p;
+    std::string irLabel1;
+    std::string irLabel2;
+    std::vector<std::any> irCode;
+    std::vector<std::any> irCodeStruct;
     virtual void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) =0;
     [[nodiscard]] virtual std::vector<std::string> showSelf() const;
     [[nodiscard]] virtual std::vector<std::string> showTree(int depth , bool is_last) const ;
     [[nodiscard]] virtual std::vector<Element> get_children() const=0;
     explicit ASTNode(const TypeName t,std::shared_ptr<Type> ty=nullptr):node_type(t),realType(std::move(ty)){}
+    virtual void IR(ASTNode*r,ASTNode*l)=0;
 };
 
 struct Type  {
@@ -273,9 +280,10 @@ struct IdentifierType : Type {//包含了单纯的struct,enum等信息
 
 struct SelfType:Type {
     SelfType():Type(TypeName::SelfType){}
-    bool equals(const Type *other) const override{
-        return false;
-    }
+    bool equals(const Type *other) const override;
+    // bool equals(const Type *other) const override{
+    //     return false;
+    // }
     // 实现 toString：返回 "Self"（符合 Rust 等语言的自引用习惯）
     [[nodiscard]] std::string toString() const override {
         return "Self";
@@ -528,6 +536,7 @@ struct LiteralExpr : Expr {
     }
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct ArrayInitExpr : Expr {
@@ -538,6 +547,7 @@ struct ArrayInitExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct ArraySimplifiedExpr :Expr{
@@ -549,6 +559,7 @@ struct ArraySimplifiedExpr :Expr{
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct ArrayAccessExpr : Expr {
@@ -559,6 +570,7 @@ struct ArrayAccessExpr : Expr {
     Expr(TypeName::ArrayAccessExpr,std::move(t)), array(std::move(a)), index(std::move(i)) {
     }
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct UnitExpr : Expr {
@@ -566,6 +578,7 @@ struct UnitExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct BinaryExpr : Expr {
@@ -579,6 +592,7 @@ struct BinaryExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct UnderscoreExpr:Expr {
@@ -677,7 +691,7 @@ struct AssignmentExpr : Expr {
     std::string op;
     std::shared_ptr<Expr> right;
     AssignmentExpr(std::shared_ptr<Expr> l,std::string op,std::shared_ptr<Expr> r):
-    Expr(TypeName::AssignmentStmt), left(std::move(l)),op(std::move(op)), right(std::move(r)) {}
+    Expr(TypeName::AssignmentExpr), left(std::move(l)),op(std::move(op)), right(std::move(r)) {}
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;

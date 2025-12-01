@@ -130,7 +130,7 @@ bool is_BigType(std::shared_ptr<Type> type) {
     return false;
 }
 
-void MemCopy(std::vector<std::any> res,std::string src,std::string dest,std::shared_ptr<Type> type) {
+void MemCopy(std::vector<std::any> res,std::string dest,std::string src,std::shared_ptr<Type> type) {
     auto size_p="%c"+std::to_string(++variableNum);
     auto var="%c"+std::to_string(++variableNum);
     res.emplace_back(size_p+" = getelementptr "+Type_To_String(type)+", ptr null, i32 1");
@@ -138,7 +138,7 @@ void MemCopy(std::vector<std::any> res,std::string src,std::string dest,std::sha
     res.emplace_back("call void @llvm.memcpy.p0.p0.i32(ptr " +dest+", ptr "+src+", i32 "+var+", i1 false");
 }
 
-void Load(std::vector<std::any> res,std::string src,std::string dest,std::shared_ptr<Type> type) {
+void Load(std::vector<std::any> res,std::string dest,std::string src,std::shared_ptr<Type> type) {
     if (is_BigType(type)) {
         MemCopy(res,src,dest,type);
     }else {
@@ -146,7 +146,7 @@ void Load(std::vector<std::any> res,std::string src,std::string dest,std::shared
     }
 }
 
-void Store(std::vector<std::any> res,std::string src,std::string dest,std::shared_ptr<Type> type) {
+void Store(std::vector<std::any> res,std::string dest,std::string src,std::shared_ptr<Type> type) {
     if (is_BigType(type)) {
         MemCopy(res,src,dest,type);
     }else {
@@ -456,23 +456,194 @@ void generateIr(LetStmt*Node,ASTNode* r,ASTNode* LastBlock) {
     }
 }
 
+void generateIr(BlockExpr *Node,ASTNode* r,ASTNode* LastBlock){
+    for (auto child:Node->get_children()) {
+        if (std::holds_alternative<ASTNode *>(child)) {
+            auto ch=std::get<ASTNode *>(child);
+            if (ch->node_type==TypeName::FnStmt) {
+                r->irCode.emplace_back(&ch->irCode);
+            }else if (ch->node_type==TypeName::StructStmt) {
+                r->irCodeStruct.emplace_back(&ch->irCode);
+            }else {
+                Node->irCode.emplace_back(&ch->irCode);
+            }
+            if (ch->realType->typeKind==TypeName::NeverType) {
+                Node->realType=ch->realType;
+                break;
+            }
+        }
+    }
+    if (Node->realType->typeKind==TypeName::UnitType||Node->realType->typeKind==TypeName::NeverType) {
+        Node->irRes = "()";
+    }else {
+        Node->irRes=Node->statements.back().first->irRes;
+    }
+}
 
-void generateIr(BlockExpr *Node,ASTNode* r,ASTNode* LastBlock);
-
-void generateIr(UnaryExpr *Node,ASTNode* r,ASTNode* LastBlock);
+void generateIr(UnaryExpr *Node,ASTNode* r,ASTNode* LastBlock){
+    if (Node->op=="-") {
+        Node->irRes="%v"+std::to_string(++variableNum);
+        Node->irCode.emplace_back(Node->right->irCode);
+        Node->irCode.emplace_back(Node->irRes+" = sub "+Type_To_String(Node->realType)+" 0, "+Node->right->irRes);
+    }else if (Node->op=="!") {
+        Node->irRes="%v"+std::to_string(++variableNum);
+        Node->irCode.emplace_back(Node->right->irCode);
+        if (Node->realType->typeKind==TypeName::BasicType) {
+            auto Basic_T=std::dynamic_pointer_cast<BasicType>(Node->realType);
+            if (Basic_T->kind==TypeName::Bool) {
+                Node->irCode.emplace_back(Node->irRes+" = xor "+Type_To_String(Node->realType)+" 1, "+Node->right->irRes);
+            }else {
+                Node->irCode.emplace_back(Node->irRes+" = xor "+Type_To_String(Node->realType)+" -1, "+Node->right->irRes);
+            }
+        }
+    }
+}
 void generateIr(PathExpr *Node,ASTNode* r,ASTNode* LastBlock);
 void generateIr(FieldAccessExpr *Node,ASTNode* r,ASTNode* LastBlock);
 void generateIr(CallExpr *Node,ASTNode* r,ASTNode* LastBlock);
 
-void generateIr(EnumStmt *Node, ASTNode* r,ASTNode* LastBlock);
+void generateIr(EnumStmt *Node, ASTNode* r,ASTNode* LastBlock) {
+
+}
+void generateIr(StructStmt *Node, ASTNode *r, ASTNode *LastBlock) {
+
+}
+
 void generateIr(StructExpr *Node,ASTNode* r,ASTNode* LastBlock);
-void generateIr(IfExpr *Node,ASTNode* r,ASTNode* LastBlock);
-void generateIr(FnStmt *Node,ASTNode* r,ASTNode* LastBlock);
+void generateIr(ConstStmt *Node,ASTNode* r,ASTNode* LastBlock) {
+
+}
+void generateIr(IfExpr *Node,ASTNode* r,ASTNode* LastBlock) {
+    if (Node->else_branch==nullptr) {//只有if
+        Node->irCode.emplace_back(&Node->condition->irCode);
+        Node->irRes="()";
+        if (Node->condition->eval.has_value()) {
+            auto cond=std::any_cast<bool>(Node->condition->eval);
+            if (cond) {
+                Node->irCode.emplace_back(&Node->then_branch->irCode);
+            }
+        }else {
+            Node->irLabel1="%v"+std::to_string(++variableNum);
+            Node->irLabel2="%v"+std::to_string(++variableNum);
+            Node->irCode.emplace_back("br i1 "+Node->condition->irRes+", label "+Node->irLabel1+", label "+Node->irLabel2);
+
+            Node->irCode.emplace_back("\n");
+            Node->irCode.emplace_back("out");
+            Node->irCode.emplace_back(Node->irLabel1.substr(1)+":");
+            Node->irCode.emplace_back("in");
+            Node->irCode.emplace_back(&Node->then_branch->irCode);
+            if (Node->then_branch->realType->typeKind!=TypeName::NeverType) {
+                Node->irCode.emplace_back("br label "+Node->irLabel2);
+            }
+
+            Node->irCode.emplace_back("\n");
+            Node->irCode.emplace_back("out");
+            Node->irCode.emplace_back(Node->irLabel2.substr(1)+":");
+            Node->irCode.emplace_back("in");
+        }
+    }else {
+        Node->irCode.emplace_back(&Node->condition->irCode);
+        if (Node->condition->eval.has_value()) {
+            auto cond=std::any_cast<bool>(Node->condition->eval);
+            if (cond) {
+                Node->irCode.emplace_back(&Node->then_branch->irCode);
+                Node->irRes=Node->then_branch->irRes;
+            }else {
+                Node->irCode.emplace_back(&Node->else_branch->irCode);
+                Node->irRes=Node->else_branch->irRes;
+            }
+        }else {
+            if (Node->realType->typeKind==TypeName::NeverType||Node->realType->typeKind==TypeName::UnitType) {
+                Node->irRes="()";
+            }else {
+                Node->irRes="%v"+std::to_string(++variableNum);
+                LastBlock->irCode.emplace_back(Node->irRes_p+" = alloca "+Type_To_String(Node->realType));
+            }
+            Node->irLabel1="%v"+std::to_string(++variableNum);
+            Node->irLabel2="%v"+std::to_string(++variableNum);
+            auto Label3="%v"+std::to_string(++variableNum);
+            Node->irCode.emplace_back("br i1 "+Node->condition->irRes+", label "+Node->irLabel1+", label "+Node->irLabel2);
+
+            Node->irCode.emplace_back("\n");
+            Node->irCode.emplace_back("out");
+            Node->irCode.emplace_back(Node->irLabel1.substr(1)+":");
+            Node->irCode.emplace_back("in");
+            Node->irCode.emplace_back(&Node->then_branch->irCode);
+            if (Node->then_branch->realType->typeKind!=TypeName::NeverType&&Node->then_branch->realType->typeKind!=TypeName::UnitType) {
+                Store(Node->irCode,Node->irRes_p,Node->then_branch->irRes,Node->then_branch->realType);
+            }
+            if (Node->then_branch->realType->typeKind!=TypeName::NeverType) {
+                Node->irCode.emplace_back("br label "+Label3);
+            }
+
+            Node->irCode.emplace_back("\n");
+            Node->irCode.emplace_back("out");
+            Node->irCode.emplace_back(Node->irLabel2.substr(1)+":");
+            Node->irCode.emplace_back("in");
+            if (Node->else_branch->realType->typeKind!=TypeName::NeverType&&Node->else_branch->realType->typeKind!=TypeName::UnitType) {
+                Store(Node->irCode,Node->irRes_p,Node->else_branch->irRes,Node->else_branch->realType);
+            }
+            if (Node->else_branch->realType->typeKind!=TypeName::NeverType) {
+                Node->irCode.emplace_back("br label "+Label3);
+            }
+
+            Node->irCode.emplace_back("\n");
+            Node->irCode.emplace_back("out");
+            Node->irCode.emplace_back(Label3.substr(1)+":");
+            Node->irCode.emplace_back("in");
+
+            if (Node->realType->typeKind!=TypeName::NeverType&&Node->realType->typeKind!=TypeName::UnitType) {
+                if (is_BigType(Node->realType)) {
+                    Node->irRes=Node->irRes_p;
+                }else {
+                    Node->irRes="%v"+std::to_string(++variableNum);
+                    Load(Node->irCode,Node->irRes,Node->irRes_p,Node->realType);
+                }
+            }
+        }
+    }
+}
+
+void generateIr(FnStmt *Node,ASTNode* r,ASTNode* LastBlock) {
+
+}
 
 
-void generateIr(ReturnExpr *Node,ASTNode* r,ASTNode* LastBlock);
-void generateIr(ConstStmt *Node,ASTNode* r,ASTNode* LastBlock);
+void generateIr(ReturnExpr *Node,ASTNode* r,ASTNode* LastBlock){
+    if (!Node->expr) {
+        Node->irCode.emplace_back("ret void");
+    }else if (is_BigType(Node->expr->realType)) {
+        Node->irCode.emplace_back(&Node->expr->irCode);
+        Store(Node->irCode,Node->FnPtr->irRes_p,Node->expr->irRes,Node->expr->realType);
+    }else {
+        Node->irCode.emplace_back(&Node->expr->irCode);
+        if (Node->expr->realType->typeKind!=TypeName::NeverType) {
+            Node->irCode.emplace_back("ret "+Type_To_String(Node->expr->realType)+" "+Node->expr->irRes);
+        }
+    }
+}
 
+void generateIr(AsExpr *Node, ASTNode *r, ASTNode *LastBlock) {
+    Node->irCode.emplace_back(&Node->expr->irCode);
+    auto Type=Node->realType;
+    auto Basic_Type=std::dynamic_pointer_cast<BasicType>(Node->realType);
+    auto T=Node->expr->realType;
+    auto Basic_T=std::dynamic_pointer_cast<BasicType>(Node->realType);
+    if (Basic_T->kind==TypeName::Char&&(Basic_Type->kind==TypeName::Int||Basic_Type->kind==TypeName::Uint||
+        Basic_Type->kind==TypeName::Isize||Basic_Type->kind==TypeName::Usize||
+        Basic_Type->kind==TypeName::U32||Basic_Type->kind==TypeName::I32) ) {
+        Node->irRes="%v"+std::to_string(++variableNum);
+        Node->irCode.emplace_back(Node->irRes+" - zext i8 "+Node->expr->irRes+" to i32");
+    }else if (Basic_T->kind==TypeName::Bool&&(Basic_Type->kind==TypeName::Int||Basic_Type->kind==TypeName::Uint||
+            Basic_Type->kind==TypeName::Isize||Basic_Type->kind==TypeName::Usize||
+            Basic_Type->kind==TypeName::U32||Basic_Type->kind==TypeName::I32) ) {
+        Node->irRes="%v"+std::to_string(++variableNum);
+        Node->irCode.emplace_back(Node->irRes+" - zext i1 "+Node->expr->irRes+" to i32");
+    }else {
+            Node->irRes=Node->expr->irRes;
+            Node->irRes_p=Node->expr->irRes_p;
+    }
+}
 
 std::vector<std::string> IntegrateRes(std::vector<std::any> &res, int dent) {
     std::vector<std::string> lines;

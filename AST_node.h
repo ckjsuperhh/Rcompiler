@@ -125,6 +125,7 @@ struct ASTNode {
     bool isMutable=false;
     bool isVariable=false;
     ASTNode* LoopPtr=nullptr;
+    ASTNode* FnPtr=nullptr;
     unsigned long long variableID = 0;
     std::string irRes;
     std::string irRes_p;
@@ -518,6 +519,7 @@ struct RustType : ASTNode {
         return children;
     }
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct Expr : ASTNode {//之后再细化了类型的分类，实际上只有很少量的类型需要用到这个，比如具体化我是int，或者说具体表示某个数组
@@ -526,6 +528,7 @@ struct Expr : ASTNode {//之后再细化了类型的分类，实际上只有很�
     ~Expr() override = default;
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override=0;
     [[nodiscard]] std::vector<Element> get_children() const override=0;
+    void IR(ASTNode*r,ASTNode*l) override =0;
 };
 
 struct LiteralExpr : Expr {
@@ -599,6 +602,7 @@ struct UnderscoreExpr:Expr {
     UnderscoreExpr():Expr(TypeName::UnderscoreExpr,std::make_shared<NeverType>()){}
     [[nodiscard]] std::vector<Element> get_children() const override;
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct UnaryExpr : Expr {
@@ -612,6 +616,7 @@ struct UnaryExpr : Expr {
     
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct PathExpr : Expr {
@@ -622,6 +627,7 @@ struct PathExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
      struct CallExpr : Expr {
@@ -635,6 +641,7 @@ struct PathExpr : Expr {
          void accept(SemanticCheck &visitor, ASTNode *F, ASTNode *l, ASTNode *f) override ;
          
     [[nodiscard]] std::vector<Element> get_children() const override;
+         void IR(ASTNode*r,ASTNode*l);
      };
 
 struct FieldAccessExpr : Expr {
@@ -645,6 +652,7 @@ struct FieldAccessExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct BlockExpr : Expr {
@@ -654,6 +662,7 @@ struct BlockExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct IfExpr: Expr {
@@ -666,6 +675,7 @@ struct IfExpr: Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct ReturnExpr : Expr {
@@ -675,6 +685,7 @@ struct ReturnExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct GroupedExpr : Expr {
@@ -684,6 +695,7 @@ struct GroupedExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct AssignmentExpr : Expr {
@@ -695,6 +707,7 @@ struct AssignmentExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct application {
@@ -710,6 +723,7 @@ struct StructExpr : Expr {
     Expr(TypeName::StructExpr,std::move(t)), apps(std::move(a)), structname(std::move(s)) {}
     [[nodiscard]] std::vector<Element> get_children() const override;
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct AsExpr : Expr {
@@ -719,6 +733,7 @@ struct AsExpr : Expr {
     Expr(TypeName::AsExpr,std::move(t)), expr(std::move(e)),type(std::move(type)) {}
     [[nodiscard]] std::vector<Element> get_children() const override;
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct ContinueExpr : Expr {
@@ -726,6 +741,7 @@ struct ContinueExpr : Expr {
     
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct BreakExpr : Expr {
@@ -736,6 +752,7 @@ struct BreakExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct LoopExpr : Expr {
@@ -745,6 +762,7 @@ struct LoopExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct WhileExpr : Expr {
@@ -755,6 +773,7 @@ struct WhileExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct Stmt : ASTNode {
@@ -763,6 +782,7 @@ struct Stmt : ASTNode {
     ~Stmt() override =default;
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override =0;
     [[nodiscard]] std::vector<Element> get_children() const override=0;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct ConstStmt : Stmt {
@@ -775,6 +795,7 @@ struct ConstStmt : Stmt {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct FnStmt : Stmt {
@@ -792,6 +813,7 @@ struct FnStmt : Stmt {
         }
     }
     ~FnStmt() override = default;
+    void IR(ASTNode*r,ASTNode*l);
     
     
     [[nodiscard]] std::vector<Element> get_children() const override;
@@ -807,6 +829,7 @@ struct StructStmt:Stmt {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct EnumStmt:Stmt{
@@ -817,6 +840,7 @@ struct EnumStmt:Stmt{
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 // struct TraitStmt:Stmt {
@@ -838,6 +862,7 @@ struct InherentImplStmt:Stmt {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 // struct TraitImplStmt:Stmt {
@@ -862,6 +887,7 @@ struct LetStmt:Stmt {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 
 struct Program : ASTNode {
@@ -884,5 +910,6 @@ struct Program : ASTNode {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
+    void IR(ASTNode*r,ASTNode*l);
 };
 #endif //AST_NODE_H

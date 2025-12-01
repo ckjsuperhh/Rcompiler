@@ -535,6 +535,7 @@ void SemanticCheck::resolveDependency(ASTNode *node) {
 
 void SemanticCheck::pre_processor(ASTNode *node, ASTNode *F, ASTNode *l, ASTNode *f) {
     node->LoopPtr=l;//在这个地方维护一下loop应该就可以了
+    node->FnPtr=f;
     auto v = node->get_children();
     if (node->realType != nullptr) {
         if (node->realType->typeKind != TypeName::RustType) {

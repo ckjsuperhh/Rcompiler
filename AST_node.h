@@ -317,6 +317,14 @@ struct Param {
     std::string name="";
     std::shared_ptr<Type> type=nullptr;
     int varnum=-1;
+    // 2. 添加双参数构造函数（匹配你传入的参数）
+    Param(std::string n, std::shared_ptr<Type> t)
+        : name(std::move(n)), type(std::move(t)) {}
+    // 可选：三参数构造函数（如果代码中需要初始化varnum）
+    Param(std::string n, std::shared_ptr<Type> t, int v)
+        : name(std::move(n)), type(std::move(t)), varnum(v) {}
+    // （可选）保留默认无参构造（如果其他地方需要）
+    Param() = default;
 };
 
 struct FunctionType : Type {
@@ -759,6 +767,11 @@ struct AssignmentExpr : Expr {
 struct application {
     std::shared_ptr<Expr> name;
     std::shared_ptr<Expr> variable;
+    application(std::shared_ptr<Expr> n, std::shared_ptr<Expr> v)
+        : name(std::move(n)), variable(std::move(v)) {}
+
+    // （可选）保留默认无参构造（如果其他地方需要空的 application 对象）
+    application() = default;
 };
 
 struct StructExpr : Expr {

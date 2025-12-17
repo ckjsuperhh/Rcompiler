@@ -1837,7 +1837,7 @@ void SemanticCheck::visit(AsExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
     if (node->type ->realType->typeKind == TypeName::BasicType) {
         auto B_type= std::dynamic_pointer_cast<BasicType>(node->type->realType);
         if (B_type->kind == TypeName::Usize||B_type->kind==TypeName::U32||B_type->kind==TypeName::Uint) {
-            if (node->expr->eval.has_value()&&any_cast<long long>(node->expr->eval)<0) {
+            if (node->expr->eval.has_value()&&std::any_cast<long long>(node->expr->eval)<0) {
                 throw std::runtime_error("SemanticCheck::visit: convert to usize but a negative number!");
             }
         }

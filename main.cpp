@@ -5,13 +5,15 @@
 #include "tokenizer.h"
 #include "parser.h"
 int main() {
-    std::ifstream file("my.in");
-    if (!file.is_open()) {
-        std::cerr<<"unable to open the file"<<std::endl;
-        return -1;
-    }
-    std::string input((std::istreambuf_iterator(file)),std::istreambuf_iterator<char>());
+    // std::ifstream file("my.in");
+    // if (!file.is_open()) {
+    //     std::cerr<<"unable to open the file"<<std::endl;
+    //     return -1;
+    // }
+    // std::string input((std::istreambuf_iterator(file)),std::istreambuf_iterator<char>());
     // std::cerr<<input<<std::endl;
+    std::string input((std::istreambuf_iterator(std::cin)),
+                     std::istreambuf_iterator<char>());
     try {
         Tokenizer t(input);
         auto v=t.tokenize();

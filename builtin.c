@@ -24,21 +24,22 @@ declare noundef i32 @scanf(ptr noundef, ...) local_unnamed_addr
 declare void @exit(i32 noundef) local_unnamed_addr
 define void @main()
 {
-v9:
-  %v14 = alloca [3 x i32]
-  %v8 = alloca [3 x i32]
-  %v11 = i32 10
-  %v15 = getelementptr [3 x i32], ptr %v14, i32 0, i32 0
-  store i32 %v11, ptr %v15
-  %v12 = i32 20
-  %v16 = getelementptr [3 x i32], ptr %v14, i32 0, i32 1
-  store i32 %v12, ptr %v16
-  %v13 = i32 30
-  %v17 = getelementptr [3 x i32], ptr %v14, i32 0, i32 2
-  store i32 %v13, ptr %v17
-  %v18 = getelementptr [3 x i32], ptr null, i32 1
-  %v19 = ptrtoint ptr %v18 to i32
-  call void @llvm.memcpy.p0.p0.i32(ptr %v8, ptr %v14, i32 %v19, i1 false)
-  %v20 = i32 0
-  call void exit(i32 %v20)
+v10:
+  %v8 = alloca i32
+  %v9 = alloca i32
+  %v12 = i32 10
+  store i32 %v12, ptr %v8
+  %v13 = load i32, ptr %v8
+  %v14 = i32 5
+  %v15 = icmp sgt i32 %v13, %v14
+  br i1 %v15, label %v19, label %v20
+v19:
+  %v16 = load i32, ptr %v8
+  %v17 = i32 5
+  %v18 = sub i32 %v16, %v17
+  store i32 %v18, ptr %v9
+  br label %v20
+v20:
+  %v21 = i32 0
+  call void exit(i32 %v21)
 }

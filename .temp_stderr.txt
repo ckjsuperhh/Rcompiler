@@ -1,1 +1,0 @@
-Error: SemanticCheck::visit:the end of block statement mustn't be underscore

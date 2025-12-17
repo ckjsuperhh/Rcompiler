@@ -1,3 +1,7 @@
+cmake_minimum_required(VERSION 3.28)
+
+project(my-test)
+
 include(FetchContent)
 
 # 3.1 自动下载 gtest（使用Gitee镜像）
@@ -14,6 +18,8 @@ add_executable(my_test test.cpp
         ../../AST_node.h
         ../../semantic_check.h
         ../../semantic_check.cpp
+        ../../ir.h
+        ../../ir.cpp
         ../../parser.h
         ../../AST_node.cpp)
 

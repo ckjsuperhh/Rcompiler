@@ -8,17 +8,17 @@
 #include <cassert>
 #include <iostream>
 #include <memory>
-#include <optional>
 #include <utility>
 #include <variant>
 #include <vector>
 
-#include "semantic_check.h"
 #include "ir.h"
+#include "semantic_check.h"
 struct ASTNode;
 struct Expr;
 struct Stmt;
 class SemanticCheck;
+class IRgen;
 enum class TypeName;
 inline int variableNum=0;
 enum class TypeName {
@@ -138,7 +138,7 @@ struct ASTNode {
     [[nodiscard]] virtual std::vector<std::string> showTree(int depth , bool is_last) const ;
     [[nodiscard]] virtual std::vector<Element> get_children() const=0;
     explicit ASTNode(const TypeName t,std::shared_ptr<Type> ty=nullptr):node_type(t),realType(std::move(ty)){}
-    virtual void IR(ASTNode*r,ASTNode*l)=0;
+    virtual void IR(IRgen &visitor, ASTNode *r, ASTNode *l)=0;
 };
 
 struct Type  {
@@ -146,6 +146,8 @@ struct Type  {
     std::shared_ptr<Type> typePtr;
     bool is_mutable=false;
     bool is_and=false;
+    bool is_const=false;
+    std::shared_ptr<ConstStmt> Const=nullptr;
 
     virtual ~Type() = default;
     virtual bool equals(const Type *other)const =0;
@@ -153,6 +155,7 @@ struct Type  {
     [[nodiscard]] virtual std::vector<Element> get_children() const =0;
     [[nodiscard]] virtual std::string toString() const = 0;
     virtual void accept(SemanticCheck&,ASTNode*,ASTNode*,ASTNode*,std::pair<SymbolTable*,ASTNode*>)=0;
+    virtual void IR(IRgen &visitor, ASTNode *r, ASTNode *l) =0;
 };//这样设计直接可以使用ASTNode中的get_type()
 
 struct TypeType:Type {
@@ -169,6 +172,9 @@ struct TypeType:Type {
         return "Type"; // 表示“Type 类型”
     }
     void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*>) override ;
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override {
+
+    };
     bool equals(const Type *other) const override {
         if (other->typeKind!=this->typeKind) {
             return false;
@@ -199,6 +205,9 @@ struct BasicType : Type {
         return false; //如果dynamic_cast失败，则必定不是相同的类型
     }
     void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*> scope) override ;
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override {
+
+    };
     [[nodiscard]] std::string toString() const override {
         // 需根据你的 TypeName 枚举值调整，确保与实际定义匹配
         switch(kind) {
@@ -226,6 +235,9 @@ struct ArrayType : Type {
         assert(dimension > 0);
     }
     void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*>) override ;
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override {
+
+    };
     bool equals(const Type *other) const override{
         if (auto *array = dynamic_cast<const ArrayType *>(other)) {
             return dimension == array->dimension &&
@@ -276,12 +288,17 @@ struct IdentifierType : Type {//包含了单纯的struct,enum等信息
         return name; // 如 "Person"、"Color"
     }
     void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*>) override ;
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override {
+
+    };
     [[nodiscard]] std::vector<Element> get_children() const override ;
 };
 
 struct SelfType:Type {
     SelfType():Type(TypeName::SelfType){}
-    bool equals(const Type *other) const override;
+    bool equals(const Type *other) const override {
+        return false;
+    }
     // bool equals(const Type *other) const override{
     //     return false;
     // }
@@ -291,22 +308,30 @@ struct SelfType:Type {
     }
     [[nodiscard]] std::vector<Element> get_children() const override ;
     void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*>) override ;
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override {
+
+    }
 };
 
 struct Param {
-    std::string name;
-    std::shared_ptr<Type> type;
+    std::string name="";
+    std::shared_ptr<Type> type=nullptr;
+    int varnum=-1;
 };
 
 struct FunctionType : Type {
+    int funcnum;
     std::string name;
     std::vector<Param> parameters;
     std::shared_ptr<SelfType> selfType;
     std::shared_ptr<Type> return_type;
-    explicit FunctionType(std::vector<Param> p, std::shared_ptr<Type> r,std::string name="",std::shared_ptr<SelfType> s=nullptr):
-        Type(TypeName::FunctionType), parameters(std::move(p)), return_type(std::move(r)),selfType(std::move(s)) ,name(std::move(name)){
+    explicit FunctionType(std::vector<Param> p, std::shared_ptr<Type> r,int func,std::string name="",std::shared_ptr<SelfType> s=nullptr):
+        Type(TypeName::FunctionType), parameters(std::move(p)),funcnum(func), return_type(std::move(r)),selfType(std::move(s)) ,name(std::move(name)){
     }
     void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*>) override ;
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override {
+
+    };
     bool equals(const Type *other) const override {
         if (auto *func = dynamic_cast<const FunctionType *>(other)) {
             if (return_type->equals(func->return_type.get()) && parameters.size() == func->parameters.size()) {
@@ -355,6 +380,9 @@ struct ErrorType : Type {
     }//只要是错误，一定判断失败
     [[nodiscard]] std::vector<Element> get_children() const override;
     void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*>) override ;
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override {
+
+    };
     // 实现 toString：明确标识错误类型
     [[nodiscard]] std::string toString() const override {
         return "ErrorType";
@@ -371,6 +399,9 @@ struct AndStrType:Type {
       }
     [[nodiscard]] std::vector<Element> get_children() const override;
     void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*>) override ;
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override {
+
+    };
 };
 
 
@@ -384,6 +415,9 @@ struct UnitType : Type {
         return {};
     }
     void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*>) override ;
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override {
+
+    };
     // 实现 toString：返回单元类型标识（符合 Rust 习惯）
     [[nodiscard]] std::string toString() const override {
         return "()";
@@ -405,6 +439,9 @@ struct NeverType : Type {
         return "!";
     }
     void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*>) override ;
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override {
+
+    };
 };
 
 struct EnumType : Type {
@@ -425,6 +462,9 @@ struct EnumType : Type {
         return false;
     }
     void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*>) override ;
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override {
+
+    };
     [[nodiscard]] std::vector<Element> get_children() const override {
         std::vector<Element> children;
         // 添加枚举基本信息
@@ -468,6 +508,9 @@ struct ReferenceType : Type {
         return "ReferenceType";
     }
     void accept(SemanticCheck &, ASTNode *, ASTNode *, ASTNode *,std::pair<SymbolTable*,ASTNode*>) override ;
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override {
+
+    };
 };
 
 struct StructType:Type {
@@ -489,6 +532,9 @@ struct StructType:Type {
         return false;
     }
     void accept(SemanticCheck& visitor,ASTNode* F,ASTNode* l,ASTNode* f,std::pair<SymbolTable*,ASTNode*>) override ;
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override {
+
+    };
     [[nodiscard]] std::vector<Element> get_children() const override {
         std::vector<Element> children;
         // 添加结构体基本信息
@@ -519,7 +565,7 @@ struct RustType : ASTNode {
         return children;
     }
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override ;
 };
 
 struct Expr : ASTNode {//之后再细化了类型的分类，实际上只有很少量的类型需要用到这个，比如具体化我是int，或者说具体表示某个数组
@@ -528,7 +574,7 @@ struct Expr : ASTNode {//之后再细化了类型的分类，实际上只有很�
     ~Expr() override = default;
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override=0;
     [[nodiscard]] std::vector<Element> get_children() const override=0;
-    void IR(ASTNode*r,ASTNode*l) override =0;
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override =0;
 };
 
 struct LiteralExpr : Expr {
@@ -539,7 +585,7 @@ struct LiteralExpr : Expr {
     }
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 struct ArrayInitExpr : Expr {
@@ -550,7 +596,7 @@ struct ArrayInitExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 struct ArraySimplifiedExpr :Expr{
@@ -562,7 +608,7 @@ struct ArraySimplifiedExpr :Expr{
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 struct ArrayAccessExpr : Expr {
@@ -573,7 +619,7 @@ struct ArrayAccessExpr : Expr {
     Expr(TypeName::ArrayAccessExpr,std::move(t)), array(std::move(a)), index(std::move(i)) {
     }
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 struct UnitExpr : Expr {
@@ -581,7 +627,7 @@ struct UnitExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 struct BinaryExpr : Expr {
@@ -595,14 +641,14 @@ struct BinaryExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 struct UnderscoreExpr:Expr {
     UnderscoreExpr():Expr(TypeName::UnderscoreExpr,std::make_shared<NeverType>()){}
     [[nodiscard]] std::vector<Element> get_children() const override;
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 struct UnaryExpr : Expr {
@@ -616,7 +662,7 @@ struct UnaryExpr : Expr {
     
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 struct PathExpr : Expr {
@@ -627,7 +673,7 @@ struct PathExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
      struct CallExpr : Expr {
@@ -641,7 +687,7 @@ struct PathExpr : Expr {
          void accept(SemanticCheck &visitor, ASTNode *F, ASTNode *l, ASTNode *f) override ;
          
     [[nodiscard]] std::vector<Element> get_children() const override;
-         void IR(ASTNode*r,ASTNode*l);
+         void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
      };
 
 struct FieldAccessExpr : Expr {
@@ -652,7 +698,7 @@ struct FieldAccessExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 struct BlockExpr : Expr {
@@ -662,7 +708,7 @@ struct BlockExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 struct IfExpr: Expr {
@@ -675,7 +721,7 @@ struct IfExpr: Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 struct ReturnExpr : Expr {
@@ -685,7 +731,7 @@ struct ReturnExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 struct GroupedExpr : Expr {
@@ -695,7 +741,7 @@ struct GroupedExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 struct AssignmentExpr : Expr {
@@ -707,7 +753,7 @@ struct AssignmentExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 struct application {
@@ -723,7 +769,7 @@ struct StructExpr : Expr {
     Expr(TypeName::StructExpr,std::move(t)), apps(std::move(a)), structname(std::move(s)) {}
     [[nodiscard]] std::vector<Element> get_children() const override;
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 struct AsExpr : Expr {
@@ -733,7 +779,7 @@ struct AsExpr : Expr {
     Expr(TypeName::AsExpr,std::move(t)), expr(std::move(e)),type(std::move(type)) {}
     [[nodiscard]] std::vector<Element> get_children() const override;
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 struct ContinueExpr : Expr {
@@ -741,7 +787,7 @@ struct ContinueExpr : Expr {
     
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 struct BreakExpr : Expr {
@@ -752,7 +798,7 @@ struct BreakExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 struct LoopExpr : Expr {
@@ -762,7 +808,7 @@ struct LoopExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 struct WhileExpr : Expr {
@@ -773,7 +819,7 @@ struct WhileExpr : Expr {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 struct Stmt : ASTNode {
@@ -782,7 +828,7 @@ struct Stmt : ASTNode {
     ~Stmt() override =default;
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override =0;
     [[nodiscard]] std::vector<Element> get_children() const override=0;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override=0;
 };
 
 struct ConstStmt : Stmt {
@@ -795,7 +841,7 @@ struct ConstStmt : Stmt {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 struct FnStmt : Stmt {
@@ -813,7 +859,7 @@ struct FnStmt : Stmt {
         }
     }
     ~FnStmt() override = default;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
     
     
     [[nodiscard]] std::vector<Element> get_children() const override;
@@ -823,13 +869,14 @@ struct FnStmt : Stmt {
 struct StructStmt:Stmt {
     std::string name;
     std::vector<Field> fields;
-    StructStmt(std::string n,std::vector<Field>f):
-        Stmt(TypeName::StructStmt), name(std::move(n)), fields(std::move(f)) {
+    std::shared_ptr<Type> Struct_Type=nullptr;
+    StructStmt(std::string n,std::vector<Field>f,std::shared_ptr<Type> S=nullptr):
+        Stmt(TypeName::StructStmt), name(std::move(n)), fields(std::move(f)), Struct_Type(std::move(S)){
     }
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 struct EnumStmt:Stmt{
@@ -840,7 +887,7 @@ struct EnumStmt:Stmt{
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 // struct TraitStmt:Stmt {
@@ -862,7 +909,7 @@ struct InherentImplStmt:Stmt {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 // struct TraitImplStmt:Stmt {
@@ -887,7 +934,7 @@ struct LetStmt:Stmt {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 
 struct Program : ASTNode {
@@ -910,6 +957,6 @@ struct Program : ASTNode {
     void accept(SemanticCheck &visitor,ASTNode* F,ASTNode* l,ASTNode* f) override ;
     
     [[nodiscard]] std::vector<Element> get_children() const override;
-    void IR(ASTNode*r,ASTNode*l);
+    void IR(IRgen &visitor, ASTNode *r, ASTNode *l) override;
 };
 #endif //AST_NODE_H

@@ -33,6 +33,10 @@ int main() {
         for (const std::string& line : tree2) {
             std::cout << line << std::endl;
         }
+        IRgen ir;
+        for (auto ve=ir.generateIr(root.get()); const auto& vv:ve) {
+            std::cout << vv << std::endl;
+        }
     }catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
         exit(-1);

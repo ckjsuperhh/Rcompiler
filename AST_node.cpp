@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include "ir.h"
 
 // 辅助函数：获取节点类型的字符串表示
 std::string get_node_type_str(TypeName type) {
@@ -1200,29 +1201,123 @@ void Program::accept(SemanticCheck& visitor, ASTNode* F, ASTNode* l, ASTNode* f)
     return visitor.visit(this, F, l, f);
 }
 
-void LiteralExpr::IR(ASTNode*r,ASTNode*l) {
-    return generateIr(this,r,l);
+void LiteralExpr::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
 }
 
-void ArrayAccessExpr::IR(ASTNode*r,ASTNode*l) {
-    return generateIr(this,r,l);
+void ArrayAccessExpr::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
 }
 
-void ArrayInitExpr::IR(ASTNode*r,ASTNode*l) {
-    return generateIr(this,r,l);
+void ArrayInitExpr::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
 }
 
-void ArraySimplifiedExpr::IR(ASTNode*r,ASTNode*l) {
-    return generateIr(this,r,l);
+void ArraySimplifiedExpr::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
 }
 
-void UnitExpr::IR(ASTNode*r,ASTNode*l) {
-    return generateIr(this,r,l);
+void UnitExpr::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
 }
 
-void BinaryExpr::IR(ASTNode*r,ASTNode*l) {
-    return generateIr(this,r,l);
+void BinaryExpr::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
 }
 
+void FnStmt::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
+}
+
+void EnumStmt::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
+}
+
+void ConstStmt::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
+}
+
+void WhileExpr::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
+}
+
+void LoopExpr::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
+}
+
+void BreakExpr::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
+}
+
+void ContinueExpr::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
+}
+
+void StructExpr::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
+}
+
+void StructStmt::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
+}
+
+void AssignmentExpr::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
+}
+
+void AsExpr::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
+}
+
+void GroupedExpr::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
+}
+
+void ReturnExpr::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
+}
+
+void BlockExpr::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
+}
+
+void IfExpr::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
+}
+
+void FieldAccessExpr::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
+}
+
+void PathExpr::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
+}
+
+void CallExpr::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
+}
+
+void UnderscoreExpr::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+}
+
+void UnaryExpr::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
+}
+
+void RustType::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
+}
+
+void InherentImplStmt::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
+}
+
+void LetStmt::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
+}
+
+void Program::IR(IRgen& visitor,ASTNode*r,ASTNode*l) {
+    return visitor.generateIr(this,r,l);
+}
 
 

@@ -1,0 +1,4 @@
+fn main() {
+let numbers: [i32; 1024] = [1;1024];
+exit(0);
+}

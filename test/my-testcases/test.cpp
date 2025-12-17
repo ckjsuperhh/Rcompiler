@@ -2,6 +2,7 @@
 
 #include "../../parser.h"
 #include "../../semantic_check.h"
+#include "../../ir.h"
 #include<iostream>
 #include <gtest/gtest.h>
 

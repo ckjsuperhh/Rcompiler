@@ -324,18 +324,33 @@ void SemanticCheck::resolveDependency(ASTNode *node) {
             pre_processor(Constnode->expr.get(), nullptr, nullptr, nullptr);
             Constnode->expr->accept(*this, nullptr, nullptr, nullptr);
             auto T0 = TypeToItem(Constnode->type->realType);
+            T0->is_const=true;
+            T0->Const=Constnode;//标记一下是const节点
             auto T1 = Constnode->expr->realType;
             is_StrongDerivable(T1, T0);
             if (!Constnode->expr->eval.has_value()) {
                 throw std::runtime_error("A constant should have value when compiling");
             }
-            SymbolEntry value = {nullptr,T0, Constnode->expr->eval, false, true};
+            SymbolEntry value = {nullptr,T0, Constnode->expr->eval, false, true,++variableNum};
+            node->variableID=variableNum;
             if (node->scope.first->lookup_i(Constnode->identifier, Constnode->scope.second).is_Global) {
                 throw std::runtime_error("global variable should not shadow");
             }
             child->scope.first->setItem(Constnode->identifier, value);
-        } else if (child->node_type == TypeName::FnStmt) {
+        } else if (child->node_type == TypeName::FnStmt) {//注意我要编一个variableNum给参数
+            //TODO
             auto Fnnode = std::dynamic_pointer_cast<FnStmt>(child);//我不知道这个fn应该怎么设计scope!!!我的parameter怎么办?
+            if (Fnnode->name=="main") {
+                Fnnode->variableID=1;
+            }else if (Fnnode->name=="exit") {
+                Fnnode->variableID=2;
+            }else if (Fnnode->name=="printInt") {
+                Fnnode->variableID=3;
+            }else if (Fnnode->name=="printlnInt") {
+                Fnnode->variableID=4;
+            }else if (Fnnode->name=="getInt") {
+                Fnnode->variableID=5;
+            }
             Fnnode->return_type->scope = Fnnode->scope;
             pre_processor(Fnnode->return_type.get(), Fnnode.get(), nullptr, nullptr);
             Fnnode->return_type->accept(*this, Fnnode.get(), nullptr, nullptr);
@@ -345,7 +360,7 @@ void SemanticCheck::resolveDependency(ASTNode *node) {
                 throw std::runtime_error("global variable should not shadow");
             }
             for (int i = 0; i < Fnnode->parameters.size(); i++) {
-                auto id = Fnnode->parameters[i];
+                auto &id = Fnnode->parameters[i];
                 bool is_mut = false, is_and = false;
                 if (id.type->is_and) {
                     is_and = true;
@@ -376,9 +391,11 @@ void SemanticCheck::resolveDependency(ASTNode *node) {
                         throw std::runtime_error("unsupported and type of parameter");
                     }//这是什么？
                     if (!is_mut) {
-                        child->scope.first->setItem(id.name, {nullptr,T0, std::any(), false, false});
+                        id.varnum=++variableNum;
+                        child->scope.first->setItem(id.name, {nullptr,T0, std::any(), false, false,variableNum});
                     } else {
-                        child->scope.first->setItem(id.name, {nullptr,T0, std::any(), true, false});
+                        id.varnum=++variableNum;
+                        child->scope.first->setItem(id.name, {nullptr,T0, std::any(), true, false,variableNum});
                     }
                 } else if (i!=0 && id.type->typeKind == TypeName::selfType) {
                     throw std::runtime_error("self must be the first parameter");
@@ -386,13 +403,15 @@ void SemanticCheck::resolveDependency(ASTNode *node) {
                     throw std::runtime_error("unsupported and type of parameter");//我感觉fn就没有self吧，应该只需要在impl中写
                 }
             }
-            node->scope.first->setItem(Fnnode->name, {nullptr,std::make_shared<FunctionType>(Fnnode->parameters, Fnnode->return_type->realType), std::any(),
-                                       false, true
+            node->scope.first->setItem(Fnnode->name, {nullptr,std::make_shared<FunctionType>(Fnnode->parameters, Fnnode->return_type->realType,++variableNum), std::any(),
+                                       false, true,variableNum
                                                      });
+            Fnnode->variableID=variableNum;
         } else if (child->node_type == TypeName::StructStmt) {
             auto Structnode = std::dynamic_pointer_cast<StructStmt>(child);
-            auto T = std::make_shared<StructType>(++structNum, Structnode->name, new SymbolTable(),
+            auto T = std::make_shared<StructType>(++variableNum, Structnode->name, new SymbolTable(),
                                                   Structnode->fields.size(), Structnode->fields);
+
             child->scope = std::make_pair(T->field, node);
             if (!Structnode->fields.empty()) {
                 for (auto i = 0; i < T->FieldNum; i++) {
@@ -411,14 +430,16 @@ void SemanticCheck::resolveDependency(ASTNode *node) {
                         T0->accept(*this,child.get(),nullptr,nullptr,child->scope);//更新一下ArrayType的length
                     }
                     //TODO
-                    child->scope.first->setItem("S-" + Structnode->fields[i].name, {nullptr,T0, std::any(), true, true});
+                    child->scope.first->setItem("S-" + Structnode->fields[i].name, {nullptr,T0, std::any(), true, true,++variableNum});
                 }
             }
             if (node->scope.first->lookup_t(Structnode->name, node->scope.second).is_Global) {
                 throw std::runtime_error("global variable should not shadow");
             }
             node->scope.first->setType(Structnode->name, {child.get(),ItemToType(T), std::any(), false, true});
-            child->realType=std::make_shared<UnitType>();
+            // child->realType = std::make_shared<TypeType>(std::make_shared<UnitType>());
+            child->realType = std::make_shared<UnitType>();
+            Structnode->Struct_Type=std::make_shared<TypeType>(T);
         } else if (child->node_type == TypeName::InherentImplStmt) {
             auto Implnode = std::dynamic_pointer_cast<InherentImplStmt>(child);
             auto EEE=child->scope.first->lookup_t(Implnode->name, node->scope.second);
@@ -444,7 +465,7 @@ void SemanticCheck::resolveDependency(ASTNode *node) {
                 if (!Constnode->expr->eval.has_value()) {
                     throw std::runtime_error("A constant should have value when compiling");
                 }
-                SymbolEntry value = {nullptr,T0, Constnode->expr->eval, false, true};
+                SymbolEntry value = {nullptr,T0, Constnode->expr->eval, false, true,++variableNum};
                 if (Struct_T->field->lookup_i(Constnode->identifier).is_Global) {
                     throw std::runtime_error("global variable should not shadow");
                 }
@@ -457,13 +478,17 @@ void SemanticCheck::resolveDependency(ASTNode *node) {
                 Fnnode->return_type->scope = Fnnode->scope;
                 pre_processor(Fnnode->return_type.get(), Fnnode.get(), nullptr, nullptr);
                 Fnnode->return_type->accept(*this, Fnnode.get(), nullptr, nullptr);
-
+                if (Fnnode->return_type->realType->typePtr->typeKind == TypeName::SelfType) {
+                    auto cc = std::dynamic_pointer_cast<InherentImplStmt>(child);
+                    auto E=node->scope.first->lookup_t(cc->name, node->scope.second);
+                    Fnnode->return_type=std::make_shared<RustType>(E.type);
+                }
                 Fnnode->scope = std::make_pair(new SymbolTable(), EEE.f);
                 if (Struct_T->field->lookup_i(Fnnode->name).is_Global) {
                     throw std::runtime_error("global variable should not shadow");
                 }//我需要在struct的作用域中去寻找
                 for (int t = 0; t < Fnnode->parameters.size(); t++) {
-                    auto id = Fnnode->parameters[t];
+                    auto& id = Fnnode->parameters[t];
                     bool is_mut = false, is_and = false;
                     if (id.type->is_and) {
                         is_and = true;
@@ -471,7 +496,24 @@ void SemanticCheck::resolveDependency(ASTNode *node) {
                     if (id.type->is_mutable) {
                         is_mut = true;
                     }
-                    if (id.type->typeKind != TypeName::selfType) {
+                    if (t==0&&id.type->typeKind == TypeName::selfType){//正确的self,我就应该创建一个实例item名字叫做"self"并且类型是现在这种
+                        auto tpr=clone(Struct_T);
+                        if (is_and) {
+                            tpr->is_and = true;
+                        }
+                        if (is_mut) {
+                            tpr->is_mutable = true;
+                        }
+                        id.varnum=++variableNum;
+                        Fnnode->scope.first->setItem("self", {nullptr,tpr,std::any(), is_mut, false,variableNum});
+                        Fnnode->parameters[0].type=std::make_shared<TypeType>(tpr,is_mut);//把原本的self改成新的type
+                    }else if (auto T0 = TypeToItem(id.type);!t&&T0->typeKind==TypeName::SelfType) {
+                        auto cc = std::dynamic_pointer_cast<InherentImplStmt>(child);
+                        auto E=node->scope.first->lookup_t(cc->name, node->scope.second);
+                        id.type=TypeToItem(E.type);
+                        id.varnum=++variableNum;
+                        Fnnode->scope.first->setItem(id.name, {nullptr,id.type, std::any(), false, false,variableNum});
+                    } else if (id.type->typeKind != TypeName::selfType) {
                         auto T0 = TypeToItem(id.type);
                         if (T0->typeKind==TypeName::ReferenceType) {
                             auto T1=T0->typePtr;
@@ -492,30 +534,23 @@ void SemanticCheck::resolveDependency(ASTNode *node) {
                             throw std::runtime_error("unsupported and type of parameter");
                         }
                         if (!is_mut) {
-                            Fnnode->scope.first->setItem(id.name, {nullptr,T0, std::any(), false, false});
+                            id.varnum=++variableNum;
+                            Fnnode->scope.first->setItem(id.name, {nullptr,T0, std::any(), false, false,variableNum});
                         } else {
-                            Fnnode->scope.first->setItem(id.name, {nullptr,T0, std::any(), true, false});
+                            id.varnum=++variableNum;
+                            Fnnode->scope.first->setItem(id.name, {nullptr,T0, std::any(), true, false,variableNum});
                         }
                     } else if (t!=0 && id.type->typeKind == TypeName::selfType) {
                         throw std::runtime_error("self must be the first parameter");
-                    } else {//正确的self，我就应该创建一个实例item名字叫做"self"并且类型是现在这种
-                        auto tpr=clone(Struct_T);
-                        if (is_and) {
-                            tpr->is_and = true;
-                        }
-                        if (is_mut) {
-                            tpr->is_mutable = true;
-                        }
-                        Fnnode->scope.first->setItem("self", {nullptr,tpr,std::any(), is_mut, false});
-                        Fnnode->parameters[0].type=std::make_shared<TypeType>(tpr,is_mut);//把原本的self改成新的type
                     }
                 }
                 Struct_T->field->setItem(Fnnode->name, {nullptr,std::make_shared<FunctionType>(Fnnode->parameters,
-                Fnnode->return_type->realType), std::any(),false, true});
+                Fnnode->return_type->realType,variableNum++), std::any(),false, true,variableNum});
+                Fnnode->variableID = variableNum;
             }
         } else if (child->node_type == TypeName::EnumStmt) {
             auto Enumnode = std::dynamic_pointer_cast<EnumStmt>(child);
-            auto T = std::make_shared<EnumType>(++structNum, Enumnode->enum_name,
+            auto T = std::make_shared<EnumType>(++variableNum, Enumnode->enum_name,
                                                 new std::unordered_map<std::string, unsigned int>());
             for (int i = 0; i < Enumnode->ids.size(); i++) {
                 if (T->MemberNames->contains(Enumnode->ids[i])) {
@@ -617,6 +652,10 @@ void SemanticCheck::visit(PathExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
         node->isMutable = e.is_mutable;
         node->realType = e.type;
         node->eval = e.eval;
+        node->variableID=e.varid;//我姑且假设对于enum不需要这个id好吧
+        node->realType->is_const=e.type->is_const;
+        node->realType->Const=e.type->Const;//把Const继承过来
+
     } else {
         auto e = node->scope.first->lookup_t(node->segments[0], node->scope.second);
         if (e.type->typeKind == TypeName::ErrorType) {
@@ -632,7 +671,6 @@ void SemanticCheck::visit(PathExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
                 node->realType = EE;
             }
         }
-
     }
 }
 
@@ -717,7 +755,7 @@ void SemanticCheck::visit(FieldAccessExpr *node, ASTNode *F, ASTNode *l, ASTNode
         auto PP=std::dynamic_pointer_cast<PathExpr>(node->field_expr);
         if (PP->segments.size() == 1 && PP->segments[0] == "to_string") {
             std::vector<Param> p;
-            node->realType=std::make_shared<FunctionType>(p,std::make_shared<TypeType>(std::make_shared<BasicType>(TypeName::String)),"to_string");
+            node->realType=std::make_shared<FunctionType>(p,std::make_shared<TypeType>(std::make_shared<BasicType>(TypeName::String)),++variableNum,"to_string");
             return;
         }
     }
@@ -732,6 +770,9 @@ void SemanticCheck::visit(FieldAccessExpr *node, ASTNode *F, ASTNode *l, ASTNode
     } else {
         Entry = node->scope.first->lookup_i(Pt->segments.back(), node->scope.second);
     }
+    Pt->realType = Entry.type;
+    node->Id=Entry.varid;
+    Pt->Id=Entry.varid;
     std::shared_ptr<Type> R=Entry.type;
     if (Entry.is_mutable) {
         node->isMutable = true;
@@ -746,7 +787,7 @@ void SemanticCheck::visit(FieldAccessExpr *node, ASTNode *F, ASTNode *l, ASTNode
         if (F->get_type() == TypeName::CallExpr&&F->Id==1&&R->typeKind==TypeName::ArrayType) {
             std::vector<Param> p;
             p.emplace_back("",std::make_shared<TypeType>(std::make_shared<ArrayType>(std::make_shared<UnitType>(),std::make_shared<UnitExpr>())));
-            node->realType=std::make_shared<FunctionType>(p,std::make_shared<TypeType>(std::make_shared<BasicType>(TypeName::Usize)),"len");
+            node->realType=std::make_shared<FunctionType>(p,std::make_shared<TypeType>(std::make_shared<BasicType>(TypeName::Usize)),++variableNum,"len");
             return;
         }
     }
@@ -770,6 +811,7 @@ void SemanticCheck::visit(FieldAccessExpr *node, ASTNode *F, ASTNode *l, ASTNode
             throw std::runtime_error("non-existent field");
         }
         node->realType = E.type;
+        node->Id=E.varid;
     }
 }
 
@@ -1128,11 +1170,12 @@ void SemanticCheck::visit(LetStmt *node, ASTNode *F, ASTNode *l, ASTNode *f) {
         auto T1 = node->expr->realType;
         is_StrongDerivable(T1, T0);
     }
-    SymbolEntry val = {nullptr,T0, std::any(), node->type->isMutable||node->is_mutable, false};//RustType会最终继承是否mut
+    SymbolEntry val = {nullptr,T0, std::any(), node->type->isMutable||node->is_mutable, false,++variableNum};//RustType会最终继承是否mut
     if (node->scope.first->lookup_i(node->identifier, node->scope.second).is_Global) {
         throw std::runtime_error(
             "SemanticCheck::visit: global variable is not allowed to be the same name with let variable");
     }
+    node->variableID = variableNum;
     node->scope.first->setItem(node->identifier, val);
     node->realType = std::make_shared<UnitType>();
 }
@@ -1265,6 +1308,9 @@ void SemanticCheck::visit(BlockExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
     } else {
         if (!node->statements.back().second) {
             //最后一位是没有分号的
+            if (node->statements.back().first->get_type()==TypeName::UnderscoreExpr) {
+                throw std::runtime_error("SemanticCheck::visit:the end of block statement mustn't be underscore");
+            }
             node->realType = node->statements.back().first->realType;
         } else {
             node->realType = std::make_shared<UnitType>();
@@ -1287,6 +1333,7 @@ void SemanticCheck::visit(BlockExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
     if (F->get_type() == TypeName::FnStmt) {
         auto Fnnode = dynamic_cast<FnStmt*>(F);
         if (Fnnode->name == "main" && Fnnode->is_crate == true) { //这个需要特判是否存在exit
+            Fnnode->variableID=1;
             auto stmt = node->statements.back().first;
             if (stmt->get_type() != TypeName::CallExpr) {
                 throw std::runtime_error("not an exit function in the last line!");
@@ -1813,6 +1860,7 @@ void SemanticCheck::visit(RustType *node, ASTNode *F, ASTNode *l, ASTNode *f) {
         auto Ref_T = std::dynamic_pointer_cast<ReferenceType>(noder);
         Ref_T->accept(*this, node, l, f,node->scope);
     }//RustType中本身已经维护好了realType(parser中),所以我后续就没有什么必要再往后写了
+
 }
 
 void SemanticCheck::TypeCheck(ReferenceType *node, ASTNode *F, ASTNode *l, ASTNode *f,std::pair<SymbolTable*,ASTNode*> scope) {
@@ -1872,17 +1920,20 @@ void SemanticCheck::loadBuiltin(ASTNode *node) {
     node->scope = std::make_pair(new SymbolTable(), nullptr);
     std::vector<Param> p{};
     p.emplace_back("", std::make_shared<TypeType>(std::make_shared<BasicType>(TypeName::I32)));
-    auto T1 = std::make_shared<FunctionType>(p, std::make_shared<UnitType>());
-    node->scope.first->setItem("exit", {nullptr,T1, std::any(), false, true});
-    node->scope.first->setItem("printInt", {nullptr,T1, std::any(), false, true});
-    node->scope.first->setItem("printlnInt", {nullptr,T1, std::any(), false, true});
+    auto T1_e = std::make_shared<FunctionType>(p, std::make_shared<UnitType>(),2);
+    node->scope.first->setItem("exit", {nullptr,T1_e, std::any(), false, true,2});
+    auto T1_p = std::make_shared<FunctionType>(p, std::make_shared<UnitType>(),3);
+    node->scope.first->setItem("printInt", {nullptr,T1_p, std::any(), false, true,3});
+    auto T1_pl = std::make_shared<FunctionType>(p, std::make_shared<UnitType>(),4);
+    node->scope.first->setItem("printlnInt", {nullptr,T1_pl, std::any(), false, true,4});
     p.clear();
     p.emplace_back("", std::make_shared<TypeType>(std::make_shared<AndStrType>()));
-    auto T2 = std::make_shared<FunctionType>(p, std::make_shared<UnitType>());
-    node->scope.first->setItem("println", {nullptr,T2, std::any(), false, true});
+    auto T2 = std::make_shared<FunctionType>(p, std::make_shared<UnitType>(),0);//这个函数并没有出现在IR中,随意处理一下
+    node->scope.first->setItem("println", {nullptr,T2, std::any(), false, true,0});
     p.clear();
-    auto T3 = std::make_shared<FunctionType>(p, std::make_shared<TypeType>(std::make_shared<BasicType>(TypeName::I32)));
-    node->scope.first->setItem("getInt", {nullptr,T3, std::any(), false, true});
+    auto T3 = std::make_shared<FunctionType>(p, std::make_shared<TypeType>(std::make_shared<BasicType>(TypeName::I32)),5);
+    node->scope.first->setItem("getInt", {nullptr,T3, std::any(), false, true,5});
+    variableNum=6;
 }
 
 void SemanticCheck::Analyze(ASTNode *node) {

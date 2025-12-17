@@ -9,6 +9,7 @@
       <w>conststmts</w>
       <w>enumnode</w>
       <w>fnnode</w>
+      <w>funcnum</w>
       <w>getelementptr</w>
       <w>grandgrandson</w>
       <w>iint</w>
@@ -16,11 +17,13 @@
       <w>isize</w>
       <w>lshr</w>
       <w>oror</w>
+      <w>rgen</w>
       <w>strtok</w>
       <w>structname</w>
       <w>structnode</w>
       <w>udiv</w>
       <w>urem</w>
+      <w>varid</w>
       <w>wxzheng</w>
     </words>
   </dictionary>

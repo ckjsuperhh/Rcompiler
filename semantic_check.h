@@ -78,6 +78,7 @@ struct SymbolEntry {
     std::any eval;
     bool is_mutable;
     bool is_Global;
+    int varid;
 };
 struct SymbolTable {
         std::unordered_map<std::string,SymbolEntry>item_Table,type_Table;

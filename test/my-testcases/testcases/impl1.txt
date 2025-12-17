@@ -1,0 +1,13 @@
+
+struct A {
+a: i32,
+b: [i32; 32],
+}
+impl A{
+fn add(a: Self) -> Self {
+A{a: a.a + 1, b: a.b}
+}
+}
+fn main(){
+exit(0);
+}

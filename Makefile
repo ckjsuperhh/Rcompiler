@@ -1,6 +1,7 @@
 # 纯手工编写的 Makefile（不依赖 CMake）
 # 适配编译器项目构建 + Docker 测试的 make build/run 命令
 # 修复：Shell 重定向兼容性问题、优化构建逻辑、添加注释说明
+# 补充：确保最终可执行文件具备执行权限（.o文件本身无需执行权限）
 
 # ------------------------------
 # 配置项（根据你的项目修改）
@@ -25,14 +26,18 @@ TEMP_STDERR = .temp_stderr.txt
 # 核心目标：make build（编译编译器）
 # ------------------------------
 build: $(TARGET)
+	# 补充：确保可执行文件具备执行权限（默认g++链接后已有执行权限，此处做兜底）
+	chmod +x $(TARGET)
 
 # 生成可执行文件：链接所有目标文件
+# 注：.o文件是中间目标文件，仅用于链接，无需执行权限；最终可执行文件才需要执行权限
 $(TARGET): $(OBJS)
 	@echo "Linking object files to create $(TARGET)..."
 	$(CXX) $(CXXFLAGS) -o $@ $^
 	@echo "Build completed successfully!"
 
 # 编译源码文件：将每个 .cpp 转为 .o（自动推导规则）
+# 注：g++ -c 编译生成的.o文件默认权限为644（rw-r--r--），无执行权限是正常的
 %.o: %.cpp
 	@echo "Compiling $<..."
 	$(CXX) $(CXXFLAGS) -c -o $@ $<

@@ -378,6 +378,7 @@ void SemanticCheck::resolveDependency(ASTNode *node) {
                             auto Entry = node->scope.first->lookup_t(T->name, node->scope.second);
                             T1 = TypeToItem(Entry.type);
                             id.type->typePtr = T1;
+                            id.type->is_and = true;
                         }
                     }else if (T0->typeKind == TypeName::IdentifierType) {
                         auto T = std::dynamic_pointer_cast<IdentifierType>(T0);
@@ -521,7 +522,8 @@ void SemanticCheck::resolveDependency(ASTNode *node) {
                                 auto TT = std::dynamic_pointer_cast<IdentifierType>(T1);
                                 auto Entry = node->scope.first->lookup_t(TT->name, node->scope.second);
                                 T1 = TypeToItem(Entry.type);
-                                id.type->typePtr = T1;
+                                id.type->typePtr = T1;//为什么我把他自动解引用了?
+                                id.type->is_and = true;//维护一下这个屎吧......
                             }
                         }else if (T0->typeKind == TypeName::IdentifierType) {
                             auto TT = std::dynamic_pointer_cast<IdentifierType>(T0);
@@ -545,7 +547,7 @@ void SemanticCheck::resolveDependency(ASTNode *node) {
                     }
                 }
                 Struct_T->field->setItem(Fnnode->name, {nullptr,std::make_shared<FunctionType>(Fnnode->parameters,
-                Fnnode->return_type->realType,variableNum++), std::any(),false, true,variableNum});
+                Fnnode->return_type->realType,++variableNum), std::any(),false, true,variableNum});
                 Fnnode->variableID = variableNum;
             }
         } else if (child->node_type == TypeName::EnumStmt) {
@@ -853,6 +855,7 @@ void SemanticCheck::visit(CallExpr *node, ASTNode *F, ASTNode *l, ASTNode *f) {
                 throw std::runtime_error("non-existent function in the struct");
             }
             auto FnType = std::dynamic_pointer_cast<FunctionType>(E.type);
+            node->receiver->realType = FnType;
             if (FnType->parameters.size() != node->arguments.size()) {
                 throw std::runtime_error("there is wrong function parameter number");
             }

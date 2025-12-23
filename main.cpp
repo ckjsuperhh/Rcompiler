@@ -5,15 +5,15 @@
 #include "tokenizer.h"
 #include "parser.h"
 int main() {
-    // std::ifstream file("my.in");
-    // if (!file.is_open()) {
-    //     std::cerr<<"unable to open the file"<<std::endl;
-    //     return -1;
-    // }
-    // std::string input((std::istreambuf_iterator(file)),std::istreambuf_iterator<char>());
-    // std::cerr<<input<<std::endl;
-    std::string input((std::istreambuf_iterator(std::cin)),
-                     std::istreambuf_iterator<char>());
+    std::ifstream file("my.in");
+    if (!file.is_open()) {
+        std::cerr<<"unable to open the file"<<std::endl;
+        return -1;
+    }
+    std::string input((std::istreambuf_iterator(file)),std::istreambuf_iterator<char>());
+    std::cerr<<input<<std::endl;
+    // std::string input((std::istreambuf_iterator(std::cin)),
+    //                  std::istreambuf_iterator<char>());
     try {
         Tokenizer t(input);
         auto v=t.tokenize();
@@ -36,9 +36,15 @@ int main() {
         //     std::cout << line << std::endl;
         // }
         IRgen ir;
-        // for (auto ve=ir.generateIr(root.get()); const auto& vv:ve) {
-        //     std::cout << vv << std::endl;
-        // }
+        for (auto ve=ir.generateIr(root.get()); const auto& vv:ve) {
+            std::cout << vv << std::endl;
+        }
+
+        std::vector<std::string> tree3 = root->showTree(0,true);
+        //逐行打印
+        for (const std::string& line : tree3) {
+            std::cout << line << std::endl;
+        }
     }
     catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;

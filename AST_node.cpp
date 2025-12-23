@@ -282,6 +282,14 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
     if (realType) {
         children.emplace_back(realType.get());
     }
+
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
+    }
     return children;
 }
 
@@ -302,6 +310,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
     // 添加数组类型信息（如果存在）
     if (realType) {
         children.emplace_back(realType.get());
+    }
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
     }
     return children;
 }
@@ -329,6 +344,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back("type:");
         children.emplace_back(realType.get());
     }
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
+    }
     return children;
 }
 
@@ -353,6 +375,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
     if (realType) {
         children.emplace_back("type:");
         children.emplace_back(realType.get());
+    }
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
     }
     return children;
 }
@@ -386,6 +415,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back("type:");
         children.emplace_back(realType.get());
     }
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
+    }
     return children;
 }
 
@@ -395,6 +431,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
     if (realType) {
         children.emplace_back("type:");
         children.emplace_back(realType.get());
+    }
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
     }
     return children;
 }
@@ -416,6 +459,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back("type:");
         children.emplace_back(realType.get());
     }
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
+    }
     return children;
 }
 
@@ -431,6 +481,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
     if (realType) {
         children.emplace_back("type:");
         children.emplace_back(realType.get());
+    }
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
     }
     return children;
 }
@@ -459,6 +516,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back("type:");
         children.emplace_back(realType.get());
     }
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
+    }
     return children;
 }
 
@@ -484,6 +548,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back("type:");
         children.emplace_back(realType.get());
     }
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
+    }
     return children;
 }
 
@@ -507,6 +578,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
     if (realType) {
         children.emplace_back("type:");
         children.emplace_back(realType.get());
+    }
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
     }
     return children;
 }
@@ -545,6 +623,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back(realType.get());
     }
 
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
+    }
     return children;
 }
 
@@ -566,6 +651,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back(realType.get());
     }
 
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
+    }
     return children;
 }
 
@@ -587,6 +679,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back(realType.get());
     }
 
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
+    }
     return children;
 }
 
@@ -619,6 +718,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back(realType.get());
     }
 
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
+    }
     return children;
 }
 
@@ -646,6 +752,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back(realType.get());
     }
 
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
+    }
     return children;
 }
 
@@ -682,6 +795,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back("type:");
         children.emplace_back(realType.get());
     }
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
+    }
     return children;
 }
 
@@ -709,6 +829,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back(realType.get());
     }
 
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
+    }
     return children;
 }
 
@@ -730,6 +857,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back(realType.get());
     }
 
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
+    }
     return children;
 }
 
@@ -759,6 +893,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back(realType.get());
     }
 
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
+    }
     return children;
 }
 
@@ -785,6 +926,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back("const_init_expr: null");
     }
 
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
+    }
     return children;
 }
 
@@ -826,6 +974,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back("fn_body: null");
     }
 
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
+    }
     return children;
 }
 
@@ -851,6 +1006,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         }
     }
 
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
+    }
     return children;
 }
 
@@ -867,6 +1029,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back("  member[" + std::to_string(i) + "]: " + ids[i]);
     }
 
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
+    }
     return children;
 }
 
@@ -901,6 +1070,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         }
     }
 
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
+    }
     return children;
 }
 
@@ -936,7 +1112,14 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
 //         }
 //     }
 //
-//     return children;
+//     if (!irRes.empty()) {
+    //     children.emplace_back("irRes: " + irRes);
+    // }
+    //
+    // if (!irRes_p.empty()) {
+    //     children.emplace_back("irRes_p: " + irRes_p);
+    // }
+    // return children;
 // }
 
 // 8. LetStmt 类实现
@@ -962,6 +1145,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         children.emplace_back("let_init_expr: uninitialized");  // 未初始化场景
     }
 
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
+    }
     return children;
 }
 
@@ -985,6 +1175,13 @@ std::vector<std::string> ASTNode::showTree(int depth = 0, bool is_last = true) c
         }
     }
 
+    if (!irRes.empty()) {
+        children.emplace_back("irRes: " + irRes);
+    }
+
+    if (!irRes_p.empty()) {
+        children.emplace_back("irRes_p: " + irRes_p);
+    }
     return children;
 }
 

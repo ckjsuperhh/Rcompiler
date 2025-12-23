@@ -77,6 +77,10 @@ class IRgen {
     void generateIr(FieldAccessExpr *Node,ASTNode* r,ASTNode* LastBlock);
     void generateIr(CallExpr *Node,ASTNode* r,ASTNode* LastBlock);
 
+    std::vector<std::string> IntegrateRes(std::vector<std::any> res, int dent);
+
+    std::vector<std::string> trimString(std::vector<std::string> res);
+
     std::vector<std::string> generateIr(ASTNode *root);
 
     void generateIr(UnitExpr *Node,ASTNode* r,ASTNode* LastBlock);

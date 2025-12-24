@@ -6,6 +6,7 @@
 
 #include "AST_node.h"
 #include "AST_Node.h"
+#include "tokenizer.h"
 
 std::string Op_To_String(const std::string& Op){
     if (Op == "+") {
@@ -197,9 +198,6 @@ void MemCopy(std::vector<std::any>& res,std::string dest,std::string src,std::sh
 }
 
 void Load(std::vector<std::any>& res,std::string dest,std::string src,std::shared_ptr<Type> type) {
-    if (dest=="@graph") {
-        std::cerr<<"Loading graph..."<<std::endl;
-    }
     if (is_BigType(type)) {
         MemCopy(res,dest,src,type);
     }else {
@@ -549,9 +547,9 @@ void IRgen::generateIr(WhileExpr *Node,ASTNode* r,ASTNode* LastBlock) {
             Node->irCode.emplace_back(std::string(Node->irLabel1.substr(1)+":"));
             Node->irCode.emplace_back(std::string("in"));
             Node->irCode.emplace_back(Node->block->irCode);//假模假式把后续生成出来
-            if (Node->block->realType->typeKind!=TypeName::NeverType) {
+            // if (Node->block->realType->typeKind!=TypeName::NeverType) {
                 Node->irCode.emplace_back(std::string("br label "+Node->irLabel1));
-            }
+            // }
             Node->irCode.emplace_back(std::string("\n"));
             Node->irCode.emplace_back(std::string("out"));
             Node->irCode.emplace_back(std::string(Node->irLabel2.substr(1)+":"));
@@ -613,8 +611,18 @@ void IRgen::generateIr(LetStmt*Node,ASTNode* r,ASTNode* LastBlock) {
         Node->realType=Node->expr->realType;
     }else if (Node->expr->realType->typeKind!=TypeName::UnitType) {
         Node->irCode.emplace_back(Node->expr->irCode);
-        LastBlock->irCode.emplace_back("%v"+std::to_string(Node->variableID)+" = alloca "+Type_To_String(Node->type->realType->typePtr));
-        Store(Node->irCode,"%v"+std::to_string(Node->variableID),Node->expr->irRes,Node->expr->realType);
+        // if (Node->identifier=="cache_stats") {
+        //     std::cerr<<"i am wrong here!"<<std::endl;
+        // }
+        if (Node->expr->realType->typeKind==TypeName::ReferenceType&&Node->expr->realType->typePtr->typeKind==TypeName::StructType) {
+            Store(Node->irCode,"%v"+std::to_string(++variableNum),Node->expr->irRes,Node->expr->realType);
+            LastBlock->irCode.emplace_back(std::string("%v"+std::to_string(variableNum)+" = alloca ptr"));
+            Load(Node->irCode,"%v"+std::to_string(Node->variableID),"%v"+std::to_string(variableNum),Node->expr->realType);//构造一个中间变量把Node->expr->irRes赋值给"%v"+std::to_string(Node->variableID)
+        //好像啥也不用干?
+        }else {
+            LastBlock->irCode.emplace_back("%v"+std::to_string(Node->variableID)+" = alloca "+Type_To_String(Node->type->realType->typePtr));
+            Store(Node->irCode,"%v"+std::to_string(Node->variableID),Node->expr->irRes,Node->expr->realType);
+        }
     }
 }
 
@@ -702,6 +710,8 @@ void IRgen::generateIr(PathExpr *Node,ASTNode* r,ASTNode* LastBlock) {
             }else if (Node->realType->typeKind==TypeName::FunctionType) {
                 auto Fn_T=std::dynamic_pointer_cast<FunctionType>(Node->realType);
                 Node->irRes="@f"+std::to_string(Fn_T->funcnum);
+            }else if (Node->realType->typeKind==TypeName::ReferenceType) {
+                Node->irRes=Node->irRes_p="%v"+std::to_string(Node->variableID);//直接使用原本的指针
             }else{//直接创造一个实例出来
                 Node->irRes="%v"+std::to_string(++variableNum);
                 Node->irRes_p="%v"+std::to_string(Node->variableID);
@@ -935,7 +945,10 @@ void IRgen::generateIr(FnStmt *Node,ASTNode* r,ASTNode* LastBlock) {
                 (Node->parameters[i].type->typePtr->typeKind==TypeName::ReferenceType
                 &&Node->parameters[i].type->typePtr->typePtr->typeKind==TypeName::BasicType)||
                 (Node->parameters[i].type->typePtr->typeKind==TypeName::StructType
-                    &&Node->parameters[i].type->is_and)) {
+                &&Node->parameters[i].type->is_and)||
+                (Node->parameters[i].name=="self"&&
+                Node->parameters[i].type->typeKind==TypeName::TypeType&&
+                Node->parameters[i].type->typePtr->is_and)) {
                 res+=" %v"+std::to_string(Node->parameters[i].varnum);//直接使用需要使用的这个ptr
                 paramNum[i]=Node->parameters[i].varnum;
             }else {
@@ -989,6 +1002,9 @@ void IRgen::generateIr(FnStmt *Node,ASTNode* r,ASTNode* LastBlock) {
                 // Node->irCode.emplace_back(std::string("%v"+std::to_string(Node->parameters[i].varnum)+" = alloca "+Type_To_String(realT)));
                 // Store(Node->irCode,"%v"+std::to_string(Node->parameters[i].varnum),"%v"+std::to_string(paramNum[i]),realT);
             }
+        }else if (Node->parameters[i].name=="self"&&Node->parameters[i].type->typeKind==TypeName::TypeType
+            &&Node->parameters[i].type->typePtr->is_and) {
+            //好像啥也不干就可以了
         }else if (is_BigType(Node->parameters[i].type)) {
             if (Node->parameters[i].type->typePtr->typeKind==TypeName::StructType) {
                 auto Struct_T=std::dynamic_pointer_cast<StructType>(Node->parameters[i].type->typePtr);
@@ -1277,7 +1293,15 @@ void IRgen::generateIr(CallExpr *Node,ASTNode* r,ASTNode* LastBlock) {
 
     else if (Node->receiver->get_type() == TypeName::FieldAccessExpr) {//a.b(),也就是method,需要在第一位就传进去a
         auto FA=std::dynamic_pointer_cast<FieldAccessExpr>(Node->receiver);
+
         Node->irCode.emplace_back(FA->struct_name->irCode);
+        // if (FA->struct_name->get_type()==TypeName::PathExpr) {
+        //     auto Pnode=std::dynamic_pointer_cast<PathExpr>(FA->struct_name);
+        //     if (Pnode->segments[0]=="lru_cache") {
+        //         std::cerr<<"i am wrong!hola!"<<std::endl;
+        //     }
+        // }
+
         // std::cerr<<"hillo1"<<std::endl;
         std::string paramRes="";
         paramRes+="ptr "+FA->struct_name->irRes;
@@ -1304,7 +1328,7 @@ void IRgen::generateIr(CallExpr *Node,ASTNode* r,ASTNode* LastBlock) {
                 paramRes+=", ";
             }
             paramRes+="ptr "+Node->irRes;
-            LastBlock->irCode.emplace_back(std::string(Node->irRes+" = alloca "+Type_To_String_ptr(Node->realType)));//如果返回值是struct或者数组,应该用一个ptr来接
+            LastBlock->irCode.emplace_back(std::string(Node->irRes+" = alloca "+Type_To_String(Node->realType)));//如果返回值是struct或者数组,应该用一个ptr来接,但是不应该是一个指向指针的指针
             Node->irCode.emplace_back(std::string("call void "+Node->receiver->irRes+"("+paramRes+")"));
             // std::cerr<<Node->receiver->irRes<<std::endl;
         }else {

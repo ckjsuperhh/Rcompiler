@@ -79,9 +79,9 @@ void runIr(std::string path) {
 TEST(semantic2, comprehensive1) {
     EXPECT_NO_THROW(runIr("comprehensive1.rx"));
 }
-// TEST(semantic2, comprehensive10) {
-//     EXPECT_NO_THROW(runIr("comprehensive10.rx"));
-// }
+TEST(semantic2, comprehensive10) {
+    EXPECT_NO_THROW(runIr("comprehensive10.rx"));
+}
 TEST(semantic2, comprehensive11) {
     EXPECT_NO_THROW(runIr("comprehensive11.rx"));
 }
@@ -223,9 +223,9 @@ TEST(semantic2, comprehensive7) {
 TEST(semantic2, comprehensive8) {
     EXPECT_NO_THROW(runIr("comprehensive8.rx"));
 }
-// TEST(semantic2, comprehensive9) {
-//     EXPECT_NO_THROW(runIr("comprehensive9.rx"));
-// }
+TEST(semantic2, comprehensive9) {
+    EXPECT_NO_THROW(runIr("comprehensive9.rx"));
+}
 TEST(semantic1, array1) {
     EXPECT_NO_THROW(runSemantic("array1.rx"));
 }
